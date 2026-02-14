@@ -30,15 +30,15 @@ router.post('/', async (req: Request, res: Response) => {
       items
     } = req.body;
 
-    // 验证必填字段
-    if (!martId || !receiverName || !receiverPhone || !province || !city || !district || !detailAddress || !items?.length) {
+    // 验证必填字段（写操作必须登录）
+    if (!martId || !userId || !receiverName || !receiverPhone || !province || !city || !district || !detailAddress || !items?.length) {
       return res.status(400).json({ error: '缺少必填字段' });
     }
 
     // 检查Mart是否存在且开放
     const mart = await prisma.mart.findUnique({
       where: { id: martId },
-      include: { goods: true }
+      include: { goods: { include: { images: { orderBy: { sortOrder: 'asc' }, take: 1 } } } }
     });
 
     if (!mart) {

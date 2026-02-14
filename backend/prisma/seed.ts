@@ -38,6 +38,23 @@ async function main() {
   });
   console.log('创建地址:', address.id);
 
+  // 创建最小地区数据（用于本地开发/测试）
+  await prisma.province.upsert({
+    where: { code: '11' },
+    update: { name: '北京市' },
+    create: { code: '11', name: '北京市' },
+  });
+  await prisma.city.upsert({
+    where: { code: '1101' },
+    update: { name: '北京市', provinceCode: '11' },
+    create: { code: '1101', name: '北京市', provinceCode: '11' },
+  });
+  await prisma.district.upsert({
+    where: { code: '110105' },
+    update: { name: '朝阳区', cityCode: '1101' },
+    create: { code: '110105', name: '朝阳区', cityCode: '1101' },
+  });
+
   // 创建测试Mart
   const mart = await prisma.mart.upsert({
     where: { id: 'demo-mart-001' },

@@ -127,7 +127,7 @@ model Mart {
   description        String?   @db.Text
   setFinishTime      Boolean   @default(false) @map("set_finish_time")
   finishTime         DateTime? @map("finish_time")
-  status             MartStatus @default(OPEN) @db.VarChar(20)
+  status             MartStatus @default(OPEN)
   browseCount        Int       @default(0) @map("browse_count")
   isSingleProduct    Boolean   @default(false) @map("is_single_product")
   groupSum           Int?      @map("group_sum")
@@ -235,6 +235,7 @@ model Goods {
   likes             GoodsLike[]
   suggestions       GoodsSuggestion[]
   reviews           GoodsReview[]
+  lowStockAlerts    LowStockAlert[]
 
   @@index([martId])
   @@index([categoryId])
@@ -277,7 +278,7 @@ model Order {
   goodsCost      Decimal   @default(0) @map("goods_cost") @db.Decimal(10, 2)
 
   // 状态
-  status         OrderStatus @default(CREATED) @db.VarChar(30)
+  status         OrderStatus @default(CREATED)
 
   // 配送信息
   shippingCompany String?  @map("shipping_company") @db.VarChar(100)
@@ -355,7 +356,7 @@ model MartParticipation {
   id        String   @id @default(uuid())
   martId    String   @map("mart_id")
   userId    String   @map("user_id")
-  orderId   String?  @map("order_id")
+  orderId   String?  @unique @map("order_id")
   createdAt DateTime @default(now()) @map("created_at")
 
   mart      Mart     @relation(fields: [martId], references: [id], onDelete: Cascade)

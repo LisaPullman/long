@@ -1,9 +1,10 @@
 import { BrowserRouter, Routes, Route, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import OrderList from './pages/OrderList';
 import OrderDetail from './pages/OrderDetail';
 import OrderCreate from './pages/OrderCreate';
 import MessageCenter from './pages/MessageCenter';
+import LanguageToggle from './components/LanguageToggle';
 
 // 模拟用户ID（实际应用中应从登录状态获取）
 const DEMO_USER_ID = 'demo-user-001';
@@ -13,11 +14,18 @@ function OrderListPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const martId = searchParams.get('martId') || undefined;
+  const { t } = useTranslation();
 
   return (
     <div>
       <div className="bg-white border-b p-4 sticky top-0 z-20">
-        <h1 className="text-lg font-medium text-center">我的订单</h1>
+        <div className="grid grid-cols-3 items-center">
+          <div />
+          <h1 className="text-lg font-medium text-center">{t('orders.myOrdersTitle')}</h1>
+          <div className="flex justify-end">
+            <LanguageToggle />
+          </div>
+        </div>
       </div>
       <OrderList
         userId={DEMO_USER_ID}
@@ -32,8 +40,9 @@ function OrderListPage() {
 function OrderDetailPage() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { t } = useTranslation();
 
-  if (!id) return <div>订单ID不存在</div>;
+  if (!id) return <div className="p-4 text-center text-gray-600">{t('orders.orderIdMissing')}</div>;
 
   return (
     <OrderDetail
@@ -63,25 +72,22 @@ function OrderCreatePage() {
 
 // 消息中心页面包装器
 function MessageCenterPage() {
-  return (
-    <div>
-      <div className="bg-white border-b p-4 sticky top-0 z-20">
-        <h1 className="text-lg font-medium text-center">消息中心</h1>
-      </div>
-      <MessageCenter userId={DEMO_USER_ID} />
-    </div>
-  );
+  return <MessageCenter userId={DEMO_USER_ID} />;
 }
 
 // 首页
 function HomePage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-primary-500 text-white p-8 text-center">
-        <h1 className="text-2xl font-bold">VanMart</h1>
-        <p className="text-sm opacity-80 mt-1">接龙团购平台</p>
+      <div className="bg-primary-500 text-white p-8 text-center relative">
+        <div className="absolute top-4 right-4">
+          <LanguageToggle />
+        </div>
+        <h1 className="text-2xl font-bold">{t('app.name')}</h1>
+        <p className="text-sm opacity-80 mt-1">{t('app.tagline')}</p>
       </div>
 
       <div className="p-4 space-y-3">
@@ -91,8 +97,8 @@ function HomePage() {
         >
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-medium">创建订单</h3>
-              <p className="text-sm text-gray-500 mt-1">参与接龙活动，下单购买商品</p>
+              <h3 className="font-medium">{t('home.createOrder')}</h3>
+              <p className="text-sm text-gray-500 mt-1">{t('home.createOrderDesc')}</p>
             </div>
             <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -106,8 +112,8 @@ function HomePage() {
         >
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-medium">我的订单</h3>
-              <p className="text-sm text-gray-500 mt-1">查看订单列表和详情</p>
+              <h3 className="font-medium">{t('home.myOrders')}</h3>
+              <p className="text-sm text-gray-500 mt-1">{t('home.myOrdersDesc')}</p>
             </div>
             <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -121,8 +127,8 @@ function HomePage() {
         >
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="font-medium">消息中心</h3>
-              <p className="text-sm text-gray-500 mt-1">查看系统通知和消息</p>
+              <h3 className="font-medium">{t('home.messageCenter')}</h3>
+              <p className="text-sm text-gray-500 mt-1">{t('home.messageCenterDesc')}</p>
             </div>
             <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -133,12 +139,12 @@ function HomePage() {
 
       <div className="p-4 mt-4">
         <div className="bg-white rounded-lg p-4">
-          <h3 className="font-medium text-gray-900 mb-2">MVP 功能说明</h3>
+          <h3 className="font-medium text-gray-900 mb-2">{t('home.mvpTitle')}</h3>
           <ul className="text-sm text-gray-600 space-y-2">
-            <li>• 订单创建：选择商品、填写收货地址、提交订单</li>
-            <li>• 订单列表：分页显示、状态筛选</li>
-            <li>• 订单详情：查看商品、物流、操作订单</li>
-            <li>• 消息中心：系统通知、订单消息</li>
+            <li>• {t('home.mvp1')}</li>
+            <li>• {t('home.mvp2')}</li>
+            <li>• {t('home.mvp3')}</li>
+            <li>• {t('home.mvp4')}</li>
           </ul>
         </div>
       </div>

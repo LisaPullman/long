@@ -1,3 +1,13 @@
+import type {
+  Goods,
+  Mart,
+  Message,
+  Order,
+  PaginatedResponse,
+  ShippingAddress,
+  User,
+} from '../types';
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
@@ -10,12 +20,16 @@ async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> 
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    const errorBody = (await response
+      .json()
+      .catch(() => ({ error: 'Unknown error' }))) as { error?: string };
+    throw new Error(errorBody.error || `HTTP error! status: ${response.status}`);
   }
 
   return response.json();
 }
+
+type MessagesListResponse = PaginatedResponse<Message> & { unreadCount: number };
 
 // 订单API
 export const ordersApi = {
@@ -31,13 +45,14 @@ export const ordersApi = {
     detailAddress: string;
     buyerRemark?: string;
     items: { goodsId: string; quantity: number }[];
-  }) => fetchApi<any>('/orders', {
+  }) =>
+    fetchApi<Order>('/orders', {
     method: 'POST',
     body: JSON.stringify(data),
   }),
 
   // 获取订单详情
-  getById: (id: string) => fetchApi<any>(`/orders/${id}`),
+  getById: (id: string) => fetchApi<Order>(`/orders/${id}`),
 
   // 获取订单列表
   list: (params?: {
@@ -56,7 +71,7 @@ export const ordersApi = {
         }
       });
     }
-    return fetchApi<any>(`/orders?${searchParams.toString()}`);
+    return fetchApi<PaginatedResponse<Order>>(`/orders?${searchParams.toString()}`);
   },
 
   // 更新订单状态
@@ -66,7 +81,8 @@ export const ordersApi = {
     shippingNo?: string;
     cancelReason?: string;
     sellerRemark?: string;
-  }) => fetchApi<any>(`/orders/${id}/status`, {
+  }) =>
+    fetchApi<Order>(`/orders/${id}/status`, {
     method: 'PATCH',
     body: JSON.stringify(data),
   }),
@@ -81,7 +97,8 @@ export const messagesApi = {
     content?: string;
     type?: string;
     relatedId?: string;
-  }) => fetchApi<any>('/messages', {
+  }) =>
+    fetchApi<Message>('/messages', {
     method: 'POST',
     body: JSON.stringify(data),
   }),
@@ -100,16 +117,16 @@ export const messagesApi = {
         searchParams.append(key, String(value));
       }
     });
-    return fetchApi<any>(`/messages?${searchParams.toString()}`);
+    return fetchApi<MessagesListResponse>(`/messages?${searchParams.toString()}`);
   },
 
   // 标记已读
-  markRead: (id: string) => fetchApi<any>(`/messages/${id}/read`, {
+  markRead: (id: string) => fetchApi<Message>(`/messages/${id}/read`, {
     method: 'PATCH',
   }),
 
   // 批量标记已读
-  markAllRead: (userId: string) => fetchApi<any>('/messages/read-all', {
+  markAllRead: (userId: string) => fetchApi<unknown>('/messages/read-all', {
     method: 'POST',
     body: JSON.stringify({ userId }),
   }),
@@ -118,10 +135,10 @@ export const messagesApi = {
 // 统计API
 export const statsApi = {
   // Mart统计摘要
-  getMartSummary: (martId: string) => fetchApi<any>(`/stats/mart/${martId}/summary`),
+  getMartSummary: (martId: string) => fetchApi<unknown>(`/stats/mart/${martId}/summary`),
 
   // 用户订单统计
-  getUserOrders: (userId: string) => fetchApi<any>(`/stats/user/orders?userId=${userId}`),
+  getUserOrders: (userId: string) => fetchApi<unknown>(`/stats/user/orders?userId=${userId}`),
 };
 
 // Mart API
@@ -135,24 +152,24 @@ export const martsApi = {
         }
       });
     }
-    return fetchApi<any>(`/marts?${searchParams.toString()}`);
+    return fetchApi<PaginatedResponse<Mart>>(`/marts?${searchParams.toString()}`);
   },
 
-  getById: (id: string) => fetchApi<any>(`/marts/${id}`),
+  getById: (id: string) => fetchApi<Mart>(`/marts/${id}`),
 
-  create: (data: any) => fetchApi<any>('/marts', {
+  create: (data: Record<string, unknown>) => fetchApi<Mart>('/marts', {
     method: 'POST',
     body: JSON.stringify(data),
   }),
 
-  update: (id: string, data: any) => fetchApi<any>(`/marts/${id}`, {
+  update: (id: string, data: Record<string, unknown>) => fetchApi<Mart>(`/marts/${id}`, {
     method: 'PUT',
     body: JSON.stringify(data),
   }),
 
-  end: (id: string) => fetchApi<any>(`/marts/${id}/end`, { method: 'POST' }),
+  end: (id: string) => fetchApi<Mart>(`/marts/${id}/end`, { method: 'POST' }),
 
-  close: (id: string) => fetchApi<any>(`/marts/${id}/close`, { method: 'POST' }),
+  close: (id: string) => fetchApi<Mart>(`/marts/${id}/close`, { method: 'POST' }),
 };
 
 // 商品API
@@ -166,17 +183,17 @@ export const goodsApi = {
         }
       });
     }
-    return fetchApi<any>(`/goods?${searchParams.toString()}`);
+    return fetchApi<PaginatedResponse<Goods>>(`/goods?${searchParams.toString()}`);
   },
 
-  getById: (id: string) => fetchApi<any>(`/goods/${id}`),
+  getById: (id: string) => fetchApi<Goods>(`/goods/${id}`),
 
-  like: (id: string, userId: string) => fetchApi<any>(`/goods/${id}/like`, {
+  like: (id: string, userId: string) => fetchApi<unknown>(`/goods/${id}/like`, {
     method: 'POST',
     body: JSON.stringify({ userId }),
   }),
 
-  unlike: (id: string, userId: string) => fetchApi<any>(`/goods/${id}/like`, {
+  unlike: (id: string, userId: string) => fetchApi<unknown>(`/goods/${id}/like`, {
     method: 'DELETE',
     body: JSON.stringify({ userId }),
   }),
@@ -185,41 +202,41 @@ export const goodsApi = {
 // 用户API
 export const usersApi = {
   register: (data: { phone: string; password?: string; nickname?: string }) =>
-    fetchApi<any>('/users/register', {
+    fetchApi<unknown>('/users/register', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
   login: (data: { phone: string; password?: string }) =>
-    fetchApi<any>('/users/login', {
+    fetchApi<{ token: string; user: User }>('/users/login', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
-  getById: (id: string) => fetchApi<any>(`/users/${id}`),
+  getById: (id: string) => fetchApi<User>(`/users/${id}`),
 
   update: (id: string, data: { nickname?: string; avatarUrl?: string }) =>
-    fetchApi<any>(`/users/${id}`, {
+    fetchApi<User>(`/users/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
 
-  getAddresses: (userId: string) => fetchApi<any>(`/users/${userId}/addresses`),
+  getAddresses: (userId: string) => fetchApi<ShippingAddress[]>(`/users/${userId}/addresses`),
 
-  addAddress: (userId: string, data: any) =>
-    fetchApi<any>(`/users/${userId}/addresses`, {
+  addAddress: (userId: string, data: Record<string, unknown>) =>
+    fetchApi<ShippingAddress>(`/users/${userId}/addresses`, {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
-  updateAddress: (userId: string, addressId: string, data: any) =>
-    fetchApi<any>(`/users/${userId}/addresses/${addressId}`, {
+  updateAddress: (userId: string, addressId: string, data: Record<string, unknown>) =>
+    fetchApi<ShippingAddress>(`/users/${userId}/addresses/${addressId}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     }),
 
   deleteAddress: (userId: string, addressId: string) =>
-    fetchApi<any>(`/users/${userId}/addresses/${addressId}`, {
+    fetchApi<unknown>(`/users/${userId}/addresses/${addressId}`, {
       method: 'DELETE',
     }),
 };
