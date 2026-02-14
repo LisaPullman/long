@@ -77,8 +77,17 @@ export default function OrderDetail({ orderId, onBack, onUpdateStatus }: OrderDe
     });
   };
 
-  const formatAmount = (amount: number) => {
-    return `¥${amount.toFixed(2)}`;
+  const toNumber = (value: unknown) => {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : 0;
+    }
+    return 0;
+  };
+
+  const formatAmount = (amount: unknown) => {
+    return `¥${toNumber(amount).toFixed(2)}`;
   };
 
   if (loading) {

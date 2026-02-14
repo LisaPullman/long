@@ -1,7 +1,65 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../db';
+import { z } from 'zod';
+import { requireAuth } from '../middleware/auth';
+import { validateBody } from '../middleware/validate';
 
 const router = Router();
+
+const createMartSchema = z.object({
+  topic: z.string().trim().min(1),
+  description: z.string().trim().optional(),
+  setFinishTime: z.boolean().optional(),
+  finishTime: z.string().datetime().optional(),
+  isSingleProduct: z.boolean().optional(),
+  groupSum: z.number().int().min(1).optional(),
+  deliveryDescription: z.string().trim().optional(),
+  expectedShipDays: z.number().int().min(1).optional(),
+  autoConfirmDays: z.number().int().min(1).optional(),
+  images: z.array(z.object({ imageUrl: z.string().url() })).optional(),
+  deliveryAreas: z
+    .array(
+      z.object({
+        province: z.string().trim().optional(),
+        provinceCode: z.string().trim().optional(),
+        city: z.string().trim().optional(),
+        cityCode: z.string().trim().optional(),
+        district: z.string().trim().optional(),
+        districtCode: z.string().trim().optional(),
+        level: z.string().trim().min(1),
+      })
+    )
+    .optional(),
+  goods: z
+    .array(
+      z.object({
+        name: z.string().trim().min(1),
+        description: z.string().trim().optional(),
+        specification: z.string().trim().optional(),
+        price: z.number().positive(),
+        originalPrice: z.number().positive().optional(),
+        repertory: z.number().int().min(0).optional(),
+        lowStockThreshold: z.number().int().min(0).optional(),
+        purchaseLimit: z.number().int().min(1).optional(),
+        cost: z.number().min(0).optional(),
+        laborCost: z.number().min(0).optional(),
+        packagingCost: z.number().min(0).optional(),
+        sortOrder: z.number().int().min(0).optional(),
+        images: z.array(z.object({ imageUrl: z.string().url() })).optional(),
+      })
+    )
+    .optional(),
+});
+
+const updateMartSchema = z.object({
+  topic: z.string().trim().min(1).optional(),
+  description: z.string().trim().optional(),
+  setFinishTime: z.boolean().optional(),
+  finishTime: z.string().datetime().nullable().optional(),
+  deliveryDescription: z.string().trim().optional(),
+  expectedShipDays: z.number().int().min(1).optional(),
+  autoConfirmDays: z.number().int().min(1).optional(),
+});
 
 // 获取Mart列表
 router.get('/', async (req: Request, res: Response) => {
@@ -63,7 +121,8 @@ router.get('/:id', async (req: Request, res: Response) => {
           orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }]
         },
         deliveryAreas: true,
-        user: { select: { id: true, nickname: true, avatarUrl: true, phone: true } },
+        // Public mart detail should not expose private fields like phone.
+        user: { select: { id: true, nickname: true, avatarUrl: true } },
         _count: { select: { orders: true, participations: true } }
       }
     });
@@ -86,10 +145,9 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // 创建Mart
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', requireAuth, validateBody(createMartSchema), async (req: Request, res: Response) => {
   try {
     const {
-      userId,
       topic,
       description,
       setFinishTime,
@@ -102,11 +160,11 @@ router.post('/', async (req: Request, res: Response) => {
       images,
       deliveryAreas,
       goods
-    } = req.body;
+    } = req.body as z.infer<typeof createMartSchema>;
 
     const mart = await prisma.mart.create({
       data: {
-        userId,
+        userId: req.user!.id,
         topic,
         description,
         setFinishTime: setFinishTime || false,
@@ -172,14 +230,23 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // 更新Mart
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', requireAuth, validateBody(updateMartSchema), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = req.body as z.infer<typeof updateMartSchema>;
+
+    const existing = await prisma.mart.findUnique({ where: { id }, select: { userId: true } });
+    if (!existing) return res.status(404).json({ error: 'Mart不存在' });
+    if (!existing.userId || existing.userId !== req.user?.id) return res.status(403).json({ error: '无权限' });
+
+    const data: any = { ...updateData };
+    if (Object.prototype.hasOwnProperty.call(updateData, 'finishTime')) {
+      data.finishTime = updateData.finishTime ? new Date(updateData.finishTime) : null;
+    }
 
     const mart = await prisma.mart.update({
       where: { id },
-      data: updateData
+      data
     });
 
     res.json(mart);
@@ -190,9 +257,13 @@ router.put('/:id', async (req: Request, res: Response) => {
 });
 
 // 结束Mart
-router.post('/:id/end', async (req: Request, res: Response) => {
+router.post('/:id/end', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
+    const existing = await prisma.mart.findUnique({ where: { id }, select: { userId: true } });
+    if (!existing) return res.status(404).json({ error: 'Mart不存在' });
+    if (!existing.userId || existing.userId !== req.user?.id) return res.status(403).json({ error: '无权限' });
 
     const mart = await prisma.mart.update({
       where: { id },
@@ -216,9 +287,13 @@ router.post('/:id/end', async (req: Request, res: Response) => {
 });
 
 // 关闭Mart（截单）
-router.post('/:id/close', async (req: Request, res: Response) => {
+router.post('/:id/close', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
+    const existing = await prisma.mart.findUnique({ where: { id }, select: { userId: true } });
+    if (!existing) return res.status(404).json({ error: 'Mart不存在' });
+    if (!existing.userId || existing.userId !== req.user?.id) return res.status(403).json({ error: '无权限' });
 
     const mart = await prisma.mart.update({
       where: { id },

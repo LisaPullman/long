@@ -37,7 +37,6 @@ export default function OrderList({ userId, martId, onSelectOrder }: OrderListPr
       const response = await ordersApi.list({
         page,
         pageSize: 10,
-        userId,
         martId,
         status: statusFilter || undefined,
       });
@@ -84,8 +83,17 @@ export default function OrderList({ userId, martId, onSelectOrder }: OrderListPr
     });
   };
 
-  const formatAmount = (amount: number) => {
-    return `¥${amount.toFixed(2)}`;
+  const toNumber = (value: unknown) => {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : 0;
+    }
+    return 0;
+  };
+
+  const formatAmount = (amount: unknown) => {
+    return `¥${toNumber(amount).toFixed(2)}`;
   };
 
   if (loading && orders.length === 0) {
@@ -212,7 +220,7 @@ export default function OrderList({ userId, martId, onSelectOrder }: OrderListPr
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-800 truncate">{item.goodsName}</p>
+                        <p className="text-sm font-medium text-slate-800 break-words leading-snug">{item.goodsName}</p>
                         {item.specification && (
                           <p className="text-xs text-slate-500 mt-0.5">{item.specification}</p>
                         )}

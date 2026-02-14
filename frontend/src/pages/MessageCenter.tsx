@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
-import { messagesApi } from '../services/api';
+import { useNavigate } from 'react-router-dom';
+import { messagesApi, setAuthToken, setCurrentUser } from '../services/api';
 import { useTranslation } from 'react-i18next';
 import type { Message } from '../types';
+import LanguageToggle from '../components/LanguageToggle';
 
 interface MessageCenterProps {
   userId: string;
@@ -9,6 +11,7 @@ interface MessageCenterProps {
 
 export default function MessageCenter({ userId }: MessageCenterProps) {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +29,6 @@ export default function MessageCenter({ userId }: MessageCenterProps) {
     try {
       setLoading(true);
       const response = await messagesApi.list({
-        userId,
         type: typeFilter || undefined,
         page: pageNum,
         pageSize: 20,
@@ -72,7 +74,7 @@ export default function MessageCenter({ userId }: MessageCenterProps) {
 
   const handleMarkAllRead = async () => {
     try {
-      await messagesApi.markAllRead(userId);
+      await messagesApi.markAllRead();
       setMessages((prev) => prev.map((m) => ({ ...m, isRead: true })));
       setUnreadCount(0);
     } catch (err) {
@@ -189,7 +191,16 @@ export default function MessageCenter({ userId }: MessageCenterProps) {
       {/* Header */}
       <div className="sticky top-0 z-20 navbar-floating border-b border-slate-200/80">
         <div className="flex items-center justify-between px-4 py-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              onClick={() => navigate('/')}
+              className="p-2 -ml-2 rounded-full hover:bg-slate-100 transition-colors"
+              aria-label="Home"
+            >
+              <svg className="w-6 h-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l9-9 9 9M4 10v10a1 1 0 001 1h5V15h4v6h5a1 1 0 001-1V10" />
+              </svg>
+            </button>
             <h1 className="text-xl font-semibold text-slate-800">{t('messages.title')}</h1>
             {unreadCount > 0 && (
               <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-medium min-w-[20px] text-center">
@@ -198,6 +209,7 @@ export default function MessageCenter({ userId }: MessageCenterProps) {
             )}
           </div>
           <div className="flex items-center gap-2">
+            <LanguageToggle />
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllRead}
@@ -206,6 +218,16 @@ export default function MessageCenter({ userId }: MessageCenterProps) {
                 {t('messages.markAllRead')}
               </button>
             )}
+            <button
+              onClick={() => {
+                setAuthToken(null);
+                setCurrentUser(null);
+                navigate('/login');
+              }}
+              className="text-xs text-slate-600 px-3 py-1.5 rounded-full border border-slate-200 hover:bg-slate-50 transition-colors"
+            >
+              {t('auth.logout')}
+            </button>
           </div>
         </div>
 
@@ -306,7 +328,7 @@ export default function MessageCenter({ userId }: MessageCenterProps) {
                         {formatDate(message.createdAt)}
                       </span>
                     </div>
-                    <h3 className={`font-semibold truncate ${!message.isRead ? 'text-slate-800' : 'text-slate-600'}`}>
+                    <h3 className={`font-semibold break-words leading-snug ${!message.isRead ? 'text-slate-800' : 'text-slate-600'}`}>
                       {message.title}
                     </h3>
                     {message.content && (

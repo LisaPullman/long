@@ -9,17 +9,62 @@ import type {
 } from '../types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const TOKEN_KEY = 'vanmart.token';
+const USER_KEY = 'vanmart.user';
+
+export function getAuthToken() {
+  try {
+    return localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setAuthToken(token: string | null) {
+  try {
+    if (!token) localStorage.removeItem(TOKEN_KEY);
+    else localStorage.setItem(TOKEN_KEY, token);
+  } catch {
+    // ignore
+  }
+}
+
+export function getCurrentUser(): User | null {
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as User;
+  } catch {
+    return null;
+  }
+}
+
+export function setCurrentUser(user: User | null) {
+  try {
+    if (!user) localStorage.removeItem(USER_KEY);
+    else localStorage.setItem(USER_KEY, JSON.stringify(user));
+  } catch {
+    // ignore
+  }
+}
 
 async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const token = getAuthToken();
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options?.headers,
     },
     ...options,
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      // Clear token so the app can re-login/refresh auth.
+      setAuthToken(null);
+      setCurrentUser(null);
+    }
     const errorBody = (await response
       .json()
       .catch(() => ({ error: 'Unknown error' }))) as { error?: string };
@@ -92,7 +137,6 @@ export const ordersApi = {
 export const messagesApi = {
   // 发送消息
   send: (data: {
-    userId: string;
     title: string;
     content?: string;
     type?: string;
@@ -105,7 +149,6 @@ export const messagesApi = {
 
   // 获取消息列表
   list: (params: {
-    userId: string;
     type?: string;
     isRead?: boolean;
     page?: number;
@@ -126,9 +169,8 @@ export const messagesApi = {
   }),
 
   // 批量标记已读
-  markAllRead: (userId: string) => fetchApi<unknown>('/messages/read-all', {
+  markAllRead: () => fetchApi<unknown>('/messages/read-all', {
     method: 'POST',
-    body: JSON.stringify({ userId }),
   }),
 };
 
@@ -138,7 +180,7 @@ export const statsApi = {
   getMartSummary: (martId: string) => fetchApi<unknown>(`/stats/mart/${martId}/summary`),
 
   // 用户订单统计
-  getUserOrders: (userId: string) => fetchApi<unknown>(`/stats/user/orders?userId=${userId}`),
+  getUserOrders: () => fetchApi<unknown>(`/stats/user/orders`),
 };
 
 // Mart API
@@ -201,13 +243,13 @@ export const goodsApi = {
 
 // 用户API
 export const usersApi = {
-  register: (data: { phone: string; password?: string; nickname?: string }) =>
-    fetchApi<unknown>('/users/register', {
+  register: (data: { phone: string; password: string; nickname?: string }) =>
+    fetchApi<{ token: string; user: User }>('/users/register', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
 
-  login: (data: { phone: string; password?: string }) =>
+  login: (data: { phone: string; password: string }) =>
     fetchApi<{ token: string; user: User }>('/users/login', {
       method: 'POST',
       body: JSON.stringify(data),

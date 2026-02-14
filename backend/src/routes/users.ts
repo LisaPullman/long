@@ -1,17 +1,50 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../db';
 import bcrypt from 'bcryptjs';
+import { z } from 'zod';
+import { requireAuth, signAccessToken } from '../middleware/auth';
+import { validateBody } from '../middleware/validate';
 
 const router = Router();
 
-// 用户注册
-router.post('/register', async (req: Request, res: Response) => {
-  try {
-    const { phone, password, nickname } = req.body;
+const registerSchema = z.object({
+  phone: z.string().trim().min(5, '手机号是必填字段'),
+  password: z.string().min(6, '密码至少 6 位'),
+  nickname: z.string().trim().min(1).max(100).optional(),
+});
 
-    if (!phone) {
-      return res.status(400).json({ error: '手机号是必填字段' });
-    }
+const loginSchema = z.object({
+  phone: z.string().trim().min(5, '手机号是必填字段'),
+  password: z.string().min(6, '密码至少 6 位'),
+});
+
+const updateUserSchema = z.object({
+  nickname: z.string().trim().min(1).max(100).optional(),
+  avatarUrl: z.string().trim().optional(),
+});
+
+const createAddressSchema = z.object({
+  receiverName: z.string().trim().min(1),
+  receiverPhone: z.string().trim().min(1),
+  province: z.string().trim().min(1),
+  provinceCode: z.string().trim().optional(),
+  city: z.string().trim().min(1),
+  cityCode: z.string().trim().optional(),
+  district: z.string().trim().min(1),
+  districtCode: z.string().trim().optional(),
+  detailAddress: z.string().trim().min(1),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
+  tag: z.string().trim().optional(),
+  isDefault: z.boolean().optional(),
+});
+
+const updateAddressSchema = createAddressSchema.partial();
+
+// 用户注册
+router.post('/register', validateBody(registerSchema), async (req: Request, res: Response) => {
+  try {
+    const { phone, password, nickname } = req.body as z.infer<typeof registerSchema>;
 
     // 检查手机号是否已注册
     const existing = await prisma.user.findUnique({
@@ -23,7 +56,7 @@ router.post('/register', async (req: Request, res: Response) => {
     }
 
     // 加密密码
-    const passwordHash = password ? await bcrypt.hash(password, 10) : null;
+    const passwordHash = await bcrypt.hash(password, 10);
 
     const user = await prisma.user.create({
       data: {
@@ -33,11 +66,16 @@ router.post('/register', async (req: Request, res: Response) => {
       }
     });
 
+    const token = signAccessToken(user.id);
     res.status(201).json({
-      id: user.id,
-      phone: user.phone,
-      nickname: user.nickname,
-      avatarUrl: user.avatarUrl
+      token,
+      user: {
+        id: user.id,
+        phone: user.phone,
+        nickname: user.nickname,
+        avatarUrl: user.avatarUrl,
+        createdAt: user.createdAt,
+      },
     });
   } catch (error) {
     console.error('注册失败:', error);
@@ -46,13 +84,9 @@ router.post('/register', async (req: Request, res: Response) => {
 });
 
 // 用户登录
-router.post('/login', async (req: Request, res: Response) => {
+router.post('/login', validateBody(loginSchema), async (req: Request, res: Response) => {
   try {
-    const { phone, password } = req.body;
-
-    if (!phone) {
-      return res.status(400).json({ error: '手机号是必填字段' });
-    }
+    const { phone, password } = req.body as z.infer<typeof loginSchema>;
 
     const user = await prisma.user.findUnique({
       where: { phone }
@@ -62,18 +96,26 @@ router.post('/login', async (req: Request, res: Response) => {
       return res.status(401).json({ error: '用户不存在' });
     }
 
-    if (user.passwordHash && password) {
-      const valid = await bcrypt.compare(password, user.passwordHash);
-      if (!valid) {
-        return res.status(401).json({ error: '密码错误' });
-      }
+    if (!user.passwordHash) {
+      return res.status(401).json({ error: '用户未设置密码' });
     }
 
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) {
+      return res.status(401).json({ error: '密码错误' });
+    }
+
+    const token = signAccessToken(user.id);
+
     res.json({
-      id: user.id,
-      phone: user.phone,
-      nickname: user.nickname,
-      avatarUrl: user.avatarUrl
+      token,
+      user: {
+        id: user.id,
+        phone: user.phone,
+        nickname: user.nickname,
+        avatarUrl: user.avatarUrl,
+        createdAt: user.createdAt,
+      },
     });
   } catch (error) {
     console.error('登录失败:', error);
@@ -81,10 +123,14 @@ router.post('/login', async (req: Request, res: Response) => {
   }
 });
 
+// Below routes require login
+router.use(requireAuth);
+
 // 获取用户信息
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    if (req.user?.id !== id) return res.status(403).json({ error: '无权限' });
 
     const user = await prisma.user.findUnique({
       where: { id },
@@ -116,10 +162,11 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // 更新用户信息
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', validateBody(updateUserSchema), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { nickname, avatarUrl } = req.body;
+    const { nickname, avatarUrl } = req.body as z.infer<typeof updateUserSchema>;
+    if (req.user?.id !== id) return res.status(403).json({ error: '无权限' });
 
     const user = await prisma.user.update({
       where: { id },
@@ -130,7 +177,8 @@ router.put('/:id', async (req: Request, res: Response) => {
       id: user.id,
       phone: user.phone,
       nickname: user.nickname,
-      avatarUrl: user.avatarUrl
+      avatarUrl: user.avatarUrl,
+      createdAt: user.createdAt,
     });
   } catch (error) {
     console.error('更新用户信息失败:', error);
@@ -142,6 +190,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 router.get('/:id/addresses', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    if (req.user?.id !== id) return res.status(403).json({ error: '无权限' });
 
     const addresses = await prisma.shippingAddress.findMany({
       where: { userId: id },
@@ -156,9 +205,10 @@ router.get('/:id/addresses', async (req: Request, res: Response) => {
 });
 
 // 添加收货地址
-router.post('/:id/addresses', async (req: Request, res: Response) => {
+router.post('/:id/addresses', validateBody(createAddressSchema), async (req: Request, res: Response) => {
   try {
     const { id: userId } = req.params;
+    if (req.user?.id !== userId) return res.status(403).json({ error: '无权限' });
     const {
       receiverName,
       receiverPhone,
@@ -173,7 +223,7 @@ router.post('/:id/addresses', async (req: Request, res: Response) => {
       longitude,
       tag,
       isDefault
-    } = req.body;
+    } = req.body as z.infer<typeof createAddressSchema>;
 
     // 如果设为默认，先取消其他默认地址
     if (isDefault) {
@@ -210,10 +260,11 @@ router.post('/:id/addresses', async (req: Request, res: Response) => {
 });
 
 // 更新收货地址
-router.put('/:id/addresses/:addressId', async (req: Request, res: Response) => {
+router.put('/:id/addresses/:addressId', validateBody(updateAddressSchema), async (req: Request, res: Response) => {
   try {
     const { id: userId, addressId } = req.params;
-    const updateData = req.body;
+    if (req.user?.id !== userId) return res.status(403).json({ error: '无权限' });
+    const updateData = req.body as z.infer<typeof updateAddressSchema>;
 
     // 如果设为默认，先取消其他默认地址
     if (updateData.isDefault) {
@@ -238,7 +289,11 @@ router.put('/:id/addresses/:addressId', async (req: Request, res: Response) => {
 // 删除收货地址
 router.delete('/:id/addresses/:addressId', async (req: Request, res: Response) => {
   try {
-    const { addressId } = req.params;
+    const { id: userId, addressId } = req.params;
+    if (req.user?.id !== userId) return res.status(403).json({ error: '无权限' });
+
+    const address = await prisma.shippingAddress.findUnique({ where: { id: addressId } });
+    if (!address || address.userId !== userId) return res.status(404).json({ error: '地址不存在' });
 
     await prisma.shippingAddress.delete({
       where: { id: addressId }

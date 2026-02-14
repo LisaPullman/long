@@ -2,6 +2,16 @@
 
 VanMart API Server - 接龙团购平台后端
 
+功能梳理文档：`FUNCTIONAL_OVERVIEW.md`
+
+## 部署到 Ubuntu VPS（生产建议）
+
+本仓库默认的 `docker-compose.yml` 偏向本地开发联调（会暴露 `5432/3001` 到宿主机端口）。部署到公网 VPS 时，建议使用更安全的生产 compose：
+
+- 生产 compose：`docker-compose.prod.yml`
+- 环境变量示例：`.env.prod.example`
+- 部署注意事项：`DEPLOY_UBUNTU_VPS.md`
+
 ## 项目概述
 
 VanMart 是一个接龙团购平台的后端服务，基于 Node.js + Express + Prisma 构建。
@@ -9,8 +19,28 @@ VanMart 是一个接龙团购平台的后端服务，基于 Node.js + Express + 
 ## 技术栈
 
 ### 运行时环境
-- Node.js >= 18.x
-- TypeScript 5.9.3
+- Node.js >= 18.x（建议使用 Node.js 20 LTS）
+- TypeScript 5.3.3（后端）
+
+### 前端建议稳定版本（用于本地/生产更稳的组合）
+
+说明：
+- 本仓库 `frontend/package.json` 当前使用的是更“新”的主版本组合（React 19 / React Router 7 / Vite 7 / Tailwind 4）。
+- 下面这组是基于 Context7 MCP 文档对 Node 支持策略、Tailwind v4 PostCSS 插件拆分等信息整理出的“兼容性优先”的稳定组合，便于你在本地快速验证 UI 表现。
+
+| 依赖包 | 建议稳定版本 | 说明 |
+|--------|--------------|------|
+| react | 18.3.1 | 更成熟、生态更广的 React 主版本 |
+| react-dom | 18.3.1 | 与 react 同步 |
+| react-router-dom | 6.30.3 | React Router v6（相对 v7 更稳） |
+| vite | 6.4.1 | 避免 Vite 7 对 Node 版本的更高要求 |
+| @vitejs/plugin-react | 4.7.0 | 与 Vite 6 组合常见 |
+| tailwindcss | 3.4.19 | Tailwind v3（相对 v4 变更更少） |
+| postcss | 8.5.6 | Tailwind v3/v4 均常用的 PostCSS 主版本 |
+| autoprefixer | 10.4.24 | Tailwind v3 常用（v4 可选） |
+| i18next | 25.8.7 | i18n 核心库（本项目已接入） |
+| react-i18next | 16.5.4 | React 绑定（本项目已接入） |
+| typescript（前端） | 5.9.3 | 可保持现状；若你希望更保守可降到 5.6.x 左右 |
 
 ### 核心依赖
 

@@ -66,44 +66,59 @@ body {
 
 /* Touch-friendly button improvements */
 .btn {
-  @apply transition-all duration-200 ease-out;
+  transition-property: all;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
 }
 
 .btn:active {
-  @apply scale-[0.98];
+  transform: scale(0.98);
 }
 
 /* Card styling */
 .card {
-  @apply bg-white rounded-2xl shadow-sm;
+  background-color: #fff;
+  border-radius: 1rem;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
 }
 
 .card-elevated {
-  @apply bg-white rounded-2xl shadow-lg;
+  background-color: #fff;
+  border-radius: 1rem;
+  box-shadow:
+    0 10px 15px -3px rgb(0 0 0 / 0.10),
+    0 4px 6px -4px rgb(0 0 0 / 0.10);
 }
 
 /* Status badge colors */
 .status-badge {
-  @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  font-weight: 500;
 }
 
 /* Smooth transitions for interactive elements */
 .interactive {
-  @apply transition-all duration-200 ease-out cursor-pointer;
+  cursor: pointer;
+  transition-property: all;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0, 0, 0.2, 1);
 }
 
 .interactive:hover {
-  @apply opacity-90;
+  opacity: 0.9;
 }
 
 .interactive:active {
-  @apply scale-[0.98];
+  transform: scale(0.98);
 }
 
 /* Image lazy loading */
-img {
-  @apply loadinglazy;
-}
+/* (Removed) CSS cannot set HTML `loading="lazy"` attribute. */
 
 /* Hide scrollbar but allow scrolling */
 .scrollbar-hide {
@@ -126,5 +141,7 @@ img {
 
 /* Floating navbar effect */
 .navbar-floating {
-  @apply backdrop-blur-md bg-white/90;
+  background-color: rgb(255 255 255 / 0.9);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }

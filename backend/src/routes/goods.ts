@@ -1,7 +1,32 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../db';
+import { z } from 'zod';
+import { requireAuth } from '../middleware/auth';
+import { validateBody } from '../middleware/validate';
 
 const router = Router();
+
+const createGoodsSchema = z.object({
+  martId: z.string().min(1),
+  categoryId: z.string().min(1).optional(),
+  name: z.string().trim().min(1),
+  description: z.string().trim().optional(),
+  specification: z.string().trim().optional(),
+  price: z.number().positive(),
+  originalPrice: z.number().positive().optional(),
+  repertory: z.number().int().min(0).optional(),
+  lowStockThreshold: z.number().int().min(0).optional(),
+  purchaseLimit: z.number().int().min(1).optional(),
+  cost: z.number().min(0).optional(),
+  laborCost: z.number().min(0).optional(),
+  packagingCost: z.number().min(0).optional(),
+  sortOrder: z.number().int().min(0).optional(),
+  images: z.array(z.object({ imageUrl: z.string().url() })).optional(),
+});
+
+const updateGoodsSchema = createGoodsSchema
+  .omit({ martId: true, images: true })
+  .partial();
 
 // 获取商品列表
 router.get('/', async (req: Request, res: Response) => {
@@ -57,7 +82,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // 创建商品
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', requireAuth, validateBody(createGoodsSchema), async (req: Request, res: Response) => {
   try {
     const {
       martId,
@@ -75,7 +100,12 @@ router.post('/', async (req: Request, res: Response) => {
       packagingCost,
       sortOrder,
       images
-    } = req.body;
+    } = req.body as z.infer<typeof createGoodsSchema>;
+
+    // Only mart organizer can manage goods.
+    const mart = await prisma.mart.findUnique({ where: { id: martId }, select: { userId: true } });
+    if (!mart) return res.status(404).json({ error: 'Mart不存在' });
+    if (!mart.userId || mart.userId !== req.user?.id) return res.status(403).json({ error: '无权限' });
 
     const goods = await prisma.goods.create({
       data: {
@@ -112,10 +142,17 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // 更新商品
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', requireAuth, validateBody(updateGoodsSchema), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = req.body as z.infer<typeof updateGoodsSchema>;
+
+    const existing = await prisma.goods.findUnique({
+      where: { id },
+      include: { mart: { select: { userId: true } } },
+    });
+    if (!existing) return res.status(404).json({ error: '商品不存在' });
+    if (!existing.mart.userId || existing.mart.userId !== req.user?.id) return res.status(403).json({ error: '无权限' });
 
     const goods = await prisma.goods.update({
       where: { id },
@@ -130,9 +167,16 @@ router.put('/:id', async (req: Request, res: Response) => {
 });
 
 // 删除商品
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
+    const existing = await prisma.goods.findUnique({
+      where: { id },
+      include: { mart: { select: { userId: true } } },
+    });
+    if (!existing) return res.status(404).json({ error: '商品不存在' });
+    if (!existing.mart.userId || existing.mart.userId !== req.user?.id) return res.status(403).json({ error: '无权限' });
 
     await prisma.goods.delete({ where: { id } });
 
@@ -144,10 +188,10 @@ router.delete('/:id', async (req: Request, res: Response) => {
 });
 
 // 商品点赞
-router.post('/:id/like', async (req: Request, res: Response) => {
+router.post('/:id/like', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { userId } = req.body;
+    const userId = req.user!.id;
 
     const existing = await prisma.goodsLike.findUnique({
       where: { userId_goodsId: { userId, goodsId: id } }
@@ -175,10 +219,15 @@ router.post('/:id/like', async (req: Request, res: Response) => {
 });
 
 // 取消点赞
-router.delete('/:id/like', async (req: Request, res: Response) => {
+router.delete('/:id/like', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { userId } = req.body;
+    const userId = req.user!.id;
+
+    const existing = await prisma.goodsLike.findUnique({
+      where: { userId_goodsId: { userId, goodsId: id } }
+    });
+    if (!existing) return res.json({ success: true });
 
     await prisma.$transaction([
       prisma.goodsLike.delete({

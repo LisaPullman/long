@@ -1,11 +1,12 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../db';
 import { Decimal } from '@prisma/client/runtime/library';
+import { requireAuth } from '../middleware/auth';
 
 const router = Router();
 
 // Mart统计摘要
-router.get('/mart/:id/summary', async (req: Request, res: Response) => {
+router.get('/mart/:id/summary', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -23,6 +24,10 @@ router.get('/mart/:id/summary', async (req: Request, res: Response) => {
 
     if (!mart) {
       return res.status(404).json({ error: '接龙活动不存在' });
+    }
+
+    if (!mart.userId || mart.userId !== req.user?.id) {
+      return res.status(403).json({ error: '无权限' });
     }
 
     // 计算统计数据
@@ -110,32 +115,28 @@ router.get('/mart/:id/summary', async (req: Request, res: Response) => {
 });
 
 // 用户订单统计
-router.get('/user/orders', async (req: Request, res: Response) => {
+router.get('/user/orders', requireAuth, async (req: Request, res: Response) => {
   try {
-    const { userId } = req.query;
-
-    if (!userId) {
-      return res.status(400).json({ error: 'userId 是必填参数' });
-    }
+    const userId = req.user!.id;
 
     // 按状态统计
     const ordersByStatus = await prisma.order.groupBy({
       by: ['status'],
-      where: { userId: userId as string },
+      where: { userId },
       _count: { id: true },
       _sum: { totalAmount: true }
     });
 
     // 总计
     const totalStats = await prisma.order.aggregate({
-      where: { userId: userId as string },
+      where: { userId },
       _count: { id: true },
       _sum: { totalAmount: true, goodsCost: true }
     });
 
     // 最近订单
     const recentOrders = await prisma.order.findMany({
-      where: { userId: userId as string },
+      where: { userId },
       take: 5,
       orderBy: { createdAt: 'desc' },
       include: {
@@ -146,7 +147,7 @@ router.get('/user/orders', async (req: Request, res: Response) => {
 
     // 参与的Mart数量
     const participatedMarts = await prisma.martParticipation.count({
-      where: { userId: userId as string }
+      where: { userId }
     });
 
     const stats = {

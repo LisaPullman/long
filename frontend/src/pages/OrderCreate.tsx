@@ -76,8 +76,17 @@ export default function OrderCreate({ martId, userId, onSuccess, onCancel }: Ord
     );
   };
 
+  const toNumber = (value: unknown) => {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : 0;
+    }
+    return 0;
+  };
+
   const calculateTotal = () => {
-    return cart.reduce((sum, item) => sum + item.goods.price * item.quantity, 0);
+    return cart.reduce((sum, item) => sum + toNumber(item.goods.price) * item.quantity, 0);
   };
 
   const getTotalQuantity = () => {
@@ -124,8 +133,8 @@ export default function OrderCreate({ martId, userId, onSuccess, onCancel }: Ord
     }
   };
 
-  const formatAmount = (amount: number) => {
-    return `¥${amount.toFixed(2)}`;
+  const formatAmount = (amount: unknown) => {
+    return `¥${toNumber(amount).toFixed(2)}`;
   };
 
   if (loading) {
@@ -174,7 +183,9 @@ export default function OrderCreate({ martId, userId, onSuccess, onCancel }: Ord
               </button>
             )}
           </div>
-          <h1 className="text-lg font-semibold text-slate-800 truncate max-w-[200px]">{mart.topic}</h1>
+          <h1 className="flex-1 px-2 text-center text-lg font-semibold text-slate-800 leading-snug break-words">
+            {mart.topic}
+          </h1>
           <div className="w-10"></div>
         </div>
       </div>

@@ -2,15 +2,45 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import rateLimit from 'express-rate-limit';
 
 dotenv.config();
 
 const app = express();
 
+const corsOrigin = (process.env.CORS_ORIGIN || '').trim();
+const corsOrigins = corsOrigin
+  ? corsOrigin
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+  : undefined;
+
 // Middlewares
-app.use(cors());
+// If you run behind a reverse proxy (Caddy/Nginx), enable this so rate-limit & IP detection work properly.
+if ((process.env.TRUST_PROXY || '').trim()) {
+  app.set('trust proxy', 1);
+}
+
+// If CORS_ORIGIN is set, restrict allowed origins (comma-separated). Otherwise keep the current
+// behavior for local dev (allow all).
+app.use(cors(corsOrigins ? { origin: corsOrigins } : undefined));
 app.use(helmet());
-app.use(express.json());
+
+// Basic rate limiting for public APIs (tune via env vars).
+const windowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000);
+const max = Number(process.env.RATE_LIMIT_MAX || (process.env.NODE_ENV === 'production' ? 300 : 2000));
+app.use(
+  '/api',
+  rateLimit({
+    windowMs,
+    max,
+    standardHeaders: true,
+    legacyHeaders: false,
+  })
+);
+
+app.use(express.json({ limit: process.env.JSON_LIMIT || '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 
 // Health check
@@ -57,4 +87,3 @@ app.use((req: express.Request, res: express.Response) => {
 });
 
 export default app;
-

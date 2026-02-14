@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:15-alpine
@@ -33,15 +31,18 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: sh -c "npx prisma migrate deploy && npm run start"
+    command: sh -c "npx prisma migrate deploy && npx prisma db seed && npm run start"
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api
+        VITE_AUTO_LOGIN_DEMO: "1"
     container_name: vanmart-frontend
     ports:
-      - "80:80"
+      - "8080:80"
     depends_on:
       - backend
 

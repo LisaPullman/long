@@ -3,6 +3,9 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Prisma on Alpine needs OpenSSL available for engine selection/runtime.
+RUN apk add --no-cache openssl
+
 # 复制 package 文件
 COPY package*.json ./
 COPY prisma ./prisma/
@@ -23,6 +26,9 @@ RUN npm run build
 FROM node:20-alpine
 
 WORKDIR /app
+
+# Runtime image. Database migrations/seeding are executed by the container entry command (see docker-compose).
+RUN apk add --no-cache openssl
 
 # 复制必要文件
 COPY --from=builder /app/dist ./dist

@@ -16,6 +16,10 @@ COPY . .
 ARG VITE_API_URL=http://localhost:3001/api
 ENV VITE_API_URL=$VITE_API_URL
 
+# Demo auto login (build-time flag)
+ARG VITE_AUTO_LOGIN_DEMO=0
+ENV VITE_AUTO_LOGIN_DEMO=$VITE_AUTO_LOGIN_DEMO
+
 # 构建
 RUN npm run build
 

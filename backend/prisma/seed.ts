@@ -1,18 +1,27 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('开始种子数据...');
 
+  const demoPassword = process.env.DEMO_PASSWORD || 'demo123456';
+  const passwordHash = await bcrypt.hash(demoPassword, 10);
+
   // 创建测试用户
   const user = await prisma.user.upsert({
     where: { id: 'demo-user-001' },
-    update: {},
+    update: {
+      phone: '13800138000',
+      nickname: '测试用户',
+      passwordHash,
+    },
     create: {
       id: 'demo-user-001',
       phone: '13800138000',
       nickname: '测试用户',
+      passwordHash,
     },
   });
   console.log('创建用户:', user.id);

@@ -1,8 +1,31 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../db';
 import { Decimal } from '@prisma/client/runtime/library';
+import { z } from 'zod';
+import { requireAuth } from '../middleware/auth';
+import { validateBody } from '../middleware/validate';
 
 const router = Router();
+
+const createOrderSchema = z.object({
+  martId: z.string().min(1),
+  receiverName: z.string().trim().min(1),
+  receiverPhone: z.string().trim().min(1),
+  province: z.string().trim().min(1),
+  city: z.string().trim().min(1),
+  district: z.string().trim().min(1),
+  detailAddress: z.string().trim().min(1),
+  buyerRemark: z.string().trim().optional(),
+  items: z.array(z.object({ goodsId: z.string().min(1), quantity: z.number().int().min(1) })).min(1),
+});
+
+const updateOrderStatusSchema = z.object({
+  status: z.enum(['CREATED', 'PENDING_SHIPMENT', 'SHIPPED', 'DELIVERED', 'COMPLETED', 'CANCELED']),
+  shippingCompany: z.string().trim().optional(),
+  shippingNo: z.string().trim().optional(),
+  cancelReason: z.string().trim().optional(),
+  sellerRemark: z.string().trim().optional(),
+});
 
 // 生成订单号
 function generateOrderNo(): string {
@@ -15,11 +38,10 @@ function generateOrderNo(): string {
 }
 
 // 创建订单
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', requireAuth, validateBody(createOrderSchema), async (req: Request, res: Response) => {
   try {
     const {
       martId,
-      userId,
       receiverName,
       receiverPhone,
       province,
@@ -28,12 +50,9 @@ router.post('/', async (req: Request, res: Response) => {
       detailAddress,
       buyerRemark,
       items
-    } = req.body;
+    } = req.body as z.infer<typeof createOrderSchema>;
 
-    // 验证必填字段（写操作必须登录）
-    if (!martId || !userId || !receiverName || !receiverPhone || !province || !city || !district || !detailAddress || !items?.length) {
-      return res.status(400).json({ error: '缺少必填字段' });
-    }
+    const userId = req.user!.id;
 
     // 检查Mart是否存在且开放
     const mart = await prisma.mart.findUnique({
@@ -75,7 +94,7 @@ router.post('/', async (req: Request, res: Response) => {
         const existingOrder = await prisma.orderItem.findFirst({
           where: {
             goodsId: goods.id,
-            order: { userId: userId, martId: martId, status: { not: 'CANCELED' } }
+            order: { userId, martId, status: { not: 'CANCELED' } }
           },
           include: { order: true }
         });
@@ -156,7 +175,7 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // 获取订单详情
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -165,7 +184,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       include: {
         items: true,
         mart: {
-          select: { id: true, topic: true }
+          select: { id: true, topic: true, userId: true }
         },
         user: {
           select: { id: true, nickname: true, phone: true }
@@ -180,6 +199,11 @@ router.get('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: '订单不存在' });
     }
 
+    const actorId = req.user!.id;
+    const isBuyer = order.userId === actorId;
+    const isOrganizer = !!order.mart?.userId && order.mart.userId === actorId;
+    if (!isBuyer && !isOrganizer) return res.status(403).json({ error: '无权限' });
+
     res.json(order);
   } catch (error) {
     console.error('获取订单失败:', error);
@@ -188,19 +212,38 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // 更新订单状态
-router.patch('/:id/status', async (req: Request, res: Response) => {
+router.patch('/:id/status', requireAuth, validateBody(updateOrderStatusSchema), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { status, shippingCompany, shippingNo, cancelReason, sellerRemark } = req.body;
+    const { status, shippingCompany, shippingNo, cancelReason, sellerRemark } =
+      req.body as z.infer<typeof updateOrderStatusSchema>;
 
     const validStatuses = ['CREATED', 'PENDING_SHIPMENT', 'SHIPPED', 'DELIVERED', 'COMPLETED', 'CANCELED'];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ error: '无效的订单状态' });
     }
 
-    const order = await prisma.order.findUnique({ where: { id } });
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: { mart: { select: { userId: true } } },
+    });
     if (!order) {
       return res.status(404).json({ error: '订单不存在' });
+    }
+
+    const actorId = req.user!.id;
+    const isBuyer = order.userId === actorId;
+    const isOrganizer = !!order.mart?.userId && order.mart.userId === actorId;
+
+    // Authorization:
+    // - Buyer: can cancel (CREATED/PENDING_SHIPMENT -> CANCELED) and confirm receipt (DELIVERED -> COMPLETED)
+    // - Organizer: other status transitions (shipping / delivery operations)
+    if (status === 'CANCELED') {
+      if (!isBuyer) return res.status(403).json({ error: '无权限' });
+    } else if (status === 'COMPLETED') {
+      if (!isBuyer && !isOrganizer) return res.status(403).json({ error: '无权限' });
+    } else {
+      if (!isOrganizer) return res.status(403).json({ error: '无权限' });
     }
 
     // 状态转换验证
@@ -220,6 +263,9 @@ router.patch('/:id/status', async (req: Request, res: Response) => {
     const updateData: any = { status };
 
     if (status === 'SHIPPED') {
+      if (!shippingCompany || !shippingNo) {
+        return res.status(400).json({ error: '发货必须填写物流公司和单号' });
+      }
       updateData.shippedAt = new Date();
       updateData.shippingCompany = shippingCompany;
       updateData.shippingNo = shippingNo;
@@ -277,13 +323,12 @@ router.patch('/:id/status', async (req: Request, res: Response) => {
 });
 
 // 获取订单列表
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', requireAuth, async (req: Request, res: Response) => {
   try {
     const {
       page = 1,
       pageSize = 20,
       martId,
-      userId,
       status,
       orderNo,
       province,
@@ -294,8 +339,21 @@ router.get('/', async (req: Request, res: Response) => {
 
     const where: any = {};
 
-    if (martId) where.martId = martId as string;
-    if (userId) where.userId = userId as string;
+    const actorId = req.user!.id;
+    if (martId) {
+      const mart = await prisma.mart.findUnique({ where: { id: martId as string }, select: { userId: true } });
+      if (mart?.userId && mart.userId === actorId) {
+        // Organizer view: list all orders for this mart
+        where.martId = martId as string;
+      } else {
+        // Buyer view: only own orders
+        where.martId = martId as string;
+        where.userId = actorId;
+      }
+    } else {
+      // Default: list my orders
+      where.userId = actorId;
+    }
     if (status) where.status = status as string;
     if (orderNo) where.orderNo = { contains: orderNo as string };
     if (province) where.province = province as string;

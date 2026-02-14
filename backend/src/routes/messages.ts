@@ -1,16 +1,23 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../db';
+import { z } from 'zod';
+import { requireAuth } from '../middleware/auth';
+import { validateBody } from '../middleware/validate';
 
 const router = Router();
 
-// 发送消息
-router.post('/', async (req: Request, res: Response) => {
-  try {
-    const { userId, title, content, type = 'system', relatedId } = req.body;
+const sendMessageSchema = z.object({
+  title: z.string().trim().min(1),
+  content: z.string().trim().optional(),
+  type: z.string().trim().min(1).optional(),
+  relatedId: z.string().trim().optional(),
+});
 
-    if (!userId || !title) {
-      return res.status(400).json({ error: '缺少必填字段' });
-    }
+// 发送消息
+router.post('/', requireAuth, validateBody(sendMessageSchema), async (req: Request, res: Response) => {
+  try {
+    const { title, content, type = 'system', relatedId } = req.body as z.infer<typeof sendMessageSchema>;
+    const userId = req.user!.id;
 
     const message = await prisma.message.create({
       data: {
@@ -31,23 +38,20 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // 获取消息列表
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', requireAuth, async (req: Request, res: Response) => {
   try {
     const {
-      userId,
       type,
       isRead,
       page = 1,
       pageSize = 20
     } = req.query;
 
-    if (!userId) {
-      return res.status(400).json({ error: 'userId 是必填参数' });
-    }
+    const userId = req.user!.id;
 
     const skip = (Number(page) - 1) * Number(pageSize);
 
-    const where: any = { userId: userId as string };
+    const where: any = { userId };
     if (type) where.type = type as string;
     if (isRead !== undefined) where.isRead = isRead === 'true';
 
@@ -60,7 +64,7 @@ router.get('/', async (req: Request, res: Response) => {
       }),
       prisma.message.count({ where }),
       prisma.message.count({
-        where: { userId: userId as string, isRead: false }
+        where: { userId, isRead: false }
       })
     ]);
 
@@ -81,9 +85,12 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // 标记消息为已读
-router.patch('/:id/read', async (req: Request, res: Response) => {
+router.patch('/:id/read', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
+    const message0 = await prisma.message.findUnique({ where: { id }, select: { userId: true } });
+    if (!message0 || message0.userId !== req.user!.id) return res.status(404).json({ error: '消息不存在' });
 
     const message = await prisma.message.update({
       where: { id },
@@ -98,13 +105,9 @@ router.patch('/:id/read', async (req: Request, res: Response) => {
 });
 
 // 批量标记已读
-router.post('/read-all', async (req: Request, res: Response) => {
+router.post('/read-all', requireAuth, async (req: Request, res: Response) => {
   try {
-    const { userId } = req.body;
-
-    if (!userId) {
-      return res.status(400).json({ error: 'userId 是必填参数' });
-    }
+    const userId = req.user!.id;
 
     const result = await prisma.message.updateMany({
       where: { userId, isRead: false },
@@ -119,9 +122,12 @@ router.post('/read-all', async (req: Request, res: Response) => {
 });
 
 // 删除消息
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+
+    const message0 = await prisma.message.findUnique({ where: { id }, select: { userId: true } });
+    if (!message0 || message0.userId !== req.user!.id) return res.status(404).json({ error: '消息不存在' });
 
     await prisma.message.delete({ where: { id } });
 
