@@ -1,0 +1,580 @@
+// VanMart Prisma Schema
+// 接龙团购平台数据库模型
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ============================================
+// 枚举
+// ============================================
+
+enum MartStatus {
+  OPEN
+  CLOSED
+  ENDED
+}
+
+enum OrderStatus {
+  CREATED
+  PENDING_SHIPMENT
+  SHIPPED
+  DELIVERED
+  COMPLETED
+  CANCELED
+}
+
+// ============================================
+// 用户相关模型
+// ============================================
+
+model User {
+  id           String   @id @default(uuid())
+  phone        String?  @unique @db.VarChar(20)
+  nickname     String?  @db.VarChar(100)
+  avatarUrl    String?  @map("avatar_url") @db.Text
+  passwordHash String?  @map("password_hash") @db.VarChar(255)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  profile          UserProfile?
+  sessions         UserSession[]
+  shippingAddresses ShippingAddress[]
+  marts            Mart[]
+  orders           Order[]
+  messages         Message[]
+  participations   MartParticipation[]
+  likes            GoodsLike[]
+  suggestions      GoodsSuggestion[] @relation("suggestions")
+  processedSuggestions GoodsSuggestion[] @relation("processedSuggestions")
+  reviews          GoodsReview[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  realName  String?  @map("real_name") @db.VarChar(50)
+  idCard    String?  @map("id_card") @db.VarChar(20)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model UserSession {
+  id               String    @id @default(uuid())
+  userId           String    @map("user_id")
+  refreshTokenHash String    @map("refresh_token_hash") @db.VarChar(255)
+  deviceInfo       String?   @map("device_info") @db.VarChar(500)
+  ipAddress        String?   @map("ip_address") @db.VarChar(45)
+  expiresAt        DateTime  @map("expires_at")
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("user_sessions")
+}
+
+// ============================================
+// 收货地址模型
+// ============================================
+
+model ShippingAddress {
+  id            String    @id @default(uuid())
+  userId        String    @map("user_id")
+  receiverName  String    @map("receiver_name") @db.VarChar(50)
+  receiverPhone String    @map("receiver_phone") @db.VarChar(20)
+  province      String    @db.VarChar(50)
+  provinceCode  String?   @map("province_code") @db.VarChar(10)
+  city          String    @db.VarChar(50)
+  cityCode      String?   @map("city_code") @db.VarChar(10)
+  district      String    @db.VarChar(50)
+  districtCode  String?   @map("district_code") @db.VarChar(10)
+  detailAddress String    @map("detail_address") @db.VarChar(500)
+  latitude      Decimal?  @db.Decimal(10, 8)
+  longitude     Decimal?  @db.Decimal(11, 8)
+  tag           String?   @db.VarChar(20)
+  isDefault     Boolean   @default(false) @map("is_default")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isDefault])
+  @@map("shipping_addresses")
+}
+
+// ============================================
+// Mart 模型
+// ============================================
+
+model Mart {
+  id                 String    @id @default(uuid())
+  userId             String?   @map("user_id")
+  topic              String    @db.VarChar(500)
+  description        String?   @db.Text
+  setFinishTime      Boolean   @default(false) @map("set_finish_time")
+  finishTime         DateTime? @map("finish_time")
+  status             MartStatus @default(OPEN) @db.VarChar(20)
+  browseCount        Int       @default(0) @map("browse_count")
+  isSingleProduct    Boolean   @default(false) @map("is_single_product")
+  groupSum           Int?      @map("group_sum")
+  deliveryDescription String?  @map("delivery_description") @db.Text
+  expectedShipDays   Int       @default(3) @map("expected_ship_days")
+  autoConfirmDays    Int       @default(7) @map("auto_confirm_days")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  user               User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  images             MartImage[]
+  goods              Goods[]
+  orders             Order[]
+  deliveryAreas      MartDeliveryArea[]
+  participations     MartParticipation[]
+  materials          Material[]
+  lowStockAlerts     LowStockAlert[]
+  reviews            GoodsReview[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([finishTime])
+  @@index([createdAt(sort: Desc)])
+  @@map("marts")
+}
+
+model MartImage {
+  id        String   @id @default(uuid())
+  martId    String   @map("mart_id")
+  imageUrl  String   @map("image_url") @db.Text
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  mart      Mart     @relation(fields: [martId], references: [id], onDelete: Cascade)
+
+  @@map("mart_images")
+}
+
+model MartDeliveryArea {
+  id           String   @id @default(uuid())
+  martId       String   @map("mart_id")
+  province     String?  @db.VarChar(50)
+  provinceCode String?  @map("province_code") @db.VarChar(10)
+  city         String?  @db.VarChar(50)
+  cityCode     String?  @map("city_code") @db.VarChar(10)
+  district     String?  @db.VarChar(50)
+  districtCode String?  @map("district_code") @db.VarChar(10)
+  level        String   @db.VarChar(20)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  mart         Mart     @relation(fields: [martId], references: [id], onDelete: Cascade)
+
+  @@index([martId])
+  @@index([provinceCode, cityCode, districtCode])
+  @@map("mart_delivery_areas")
+}
+
+// ============================================
+// 商品模型
+// ============================================
+
+model GoodsCategory {
+  id        String   @id @default(uuid())
+  name      String   @db.VarChar(100)
+  iconUrl   String?  @map("icon_url") @db.Text
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  goods     Goods[]
+
+  @@map("goods_categories")
+}
+
+model Goods {
+  id                String       @id @default(uuid())
+  martId            String       @map("mart_id")
+  categoryId        String?      @map("category_id")
+  name              String       @db.VarChar(200)
+  description       String?      @db.Text
+  specification     String?      @db.VarChar(200)
+  price             Decimal      @db.Decimal(10, 2)
+  originalPrice     Decimal?     @map("original_price") @db.Decimal(10, 2)
+  repertory         Int          @default(0)
+  soldCount         Int          @default(0) @map("sold_count")
+  isSetGroup        Boolean      @default(false) @map("is_set_group")
+  groupSum          Int?         @map("group_sum")
+  lowStockThreshold Int?         @map("low_stock_threshold")
+  purchaseLimit     Int?         @map("purchase_limit")
+  cost              Decimal?     @db.Decimal(10, 2)
+  materialCostItems String?      @map("material_cost_items") @db.Text
+  laborCost         Decimal?     @map("labor_cost") @db.Decimal(10, 2)
+  packagingCost     Decimal?     @map("packaging_cost") @db.Decimal(10, 2)
+  likesCount        Int          @default(0) @map("likes_count")
+  sortOrder         Int          @default(0) @map("sort_order")
+  status            String       @default("ACTIVE") @db.VarChar(20)
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  mart              Mart         @relation(fields: [martId], references: [id], onDelete: Cascade)
+  category          GoodsCategory? @relation(fields: [categoryId], references: [id])
+  images            GoodsImage[]
+  orderItems        OrderItem[]
+  likes             GoodsLike[]
+  suggestions       GoodsSuggestion[]
+  reviews           GoodsReview[]
+
+  @@index([martId])
+  @@index([categoryId])
+  @@map("goods")
+}
+
+model GoodsImage {
+  id        String   @id @default(uuid())
+  goodsId   String   @map("goods_id")
+  imageUrl  String   @map("image_url") @db.Text
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  goods     Goods    @relation(fields: [goodsId], references: [id], onDelete: Cascade)
+
+  @@map("goods_images")
+}
+
+// ============================================
+// 订单模型
+// ============================================
+
+model Order {
+  id             String    @id @default(uuid())
+  orderNo        String    @unique @map("order_no") @db.VarChar(32)
+  martId         String?   @map("mart_id")
+  userId         String?   @map("user_id")
+
+  // 收货信息
+  receiverName   String    @map("receiver_name") @db.VarChar(50)
+  receiverPhone  String    @map("receiver_phone") @db.VarChar(20)
+  province       String    @db.VarChar(50)
+  city           String    @db.VarChar(50)
+  district       String    @db.VarChar(50)
+  detailAddress  String    @map("detail_address") @db.VarChar(500)
+
+  // 金额
+  totalAmount    Decimal   @map("total_amount") @db.Decimal(10, 2)
+  freightAmount  Decimal   @default(0) @map("freight_amount") @db.Decimal(10, 2)
+  goodsCost      Decimal   @default(0) @map("goods_cost") @db.Decimal(10, 2)
+
+  // 状态
+  status         OrderStatus @default(CREATED) @db.VarChar(30)
+
+  // 配送信息
+  shippingCompany String?  @map("shipping_company") @db.VarChar(100)
+  shippingNo      String?  @map("shipping_no") @db.VarChar(100)
+  shippedAt       DateTime? @map("shipped_at")
+  deliveredAt     DateTime? @map("delivered_at")
+  completedAt     DateTime? @map("completed_at")
+  canceledAt      DateTime? @map("canceled_at")
+  cancelReason    String?  @map("cancel_reason") @db.Text
+
+  // 备注
+  buyerRemark    String?   @map("buyer_remark") @db.Text
+  sellerRemark   String?   @map("seller_remark") @db.Text
+
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  mart           Mart?     @relation(fields: [martId], references: [id], onDelete: SetNull)
+  user           User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  items          OrderItem[]
+  deliveryTracks OrderDeliveryTrack[]
+  participation  MartParticipation?
+  suggestions    GoodsSuggestion[]
+  reviews        GoodsReview[]
+
+  @@index([martId])
+  @@index([userId])
+  @@index([status])
+  @@index([orderNo])
+  @@index([createdAt(sort: Desc)])
+  @@index([province, city])
+  @@map("orders")
+}
+
+model OrderItem {
+  id           String   @id @default(uuid())
+  orderId      String   @map("order_id")
+  goodsId      String?  @map("goods_id")
+  goodsName    String   @map("goods_name") @db.VarChar(200)
+  goodsImage   String?  @map("goods_image") @db.Text
+  specification String? @db.VarChar(200)
+  price        Decimal  @db.Decimal(10, 2)
+  quantity     Int
+  subtotal     Decimal  @db.Decimal(10, 2)
+  goodsCost    Decimal  @default(0) @map("goods_cost") @db.Decimal(10, 2)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  order        Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  goods        Goods?   @relation(fields: [goodsId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model OrderDeliveryTrack {
+  id          String   @id @default(uuid())
+  orderId     String   @map("order_id")
+  status      String   @db.VarChar(30)
+  description String?  @db.Text
+  location    String?  @db.VarChar(200)
+  operator    String?  @db.VarChar(100)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("order_delivery_tracks")
+}
+
+// ============================================
+// 参与记录模型
+// ============================================
+
+model MartParticipation {
+  id        String   @id @default(uuid())
+  martId    String   @map("mart_id")
+  userId    String   @map("user_id")
+  orderId   String?  @map("order_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  mart      Mart     @relation(fields: [martId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order     Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@unique([martId, userId])
+  @@index([martId])
+  @@index([userId])
+  @@map("mart_participations")
+}
+
+// ============================================
+// 消息模型
+// ============================================
+
+model Message {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  title     String   @db.VarChar(200)
+  content   String?  @db.Text
+  type      String   @default("system") @db.VarChar(50)
+  relatedId String?  @map("related_id")
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isRead])
+  @@index([createdAt(sort: Desc)])
+  @@map("messages")
+}
+
+// ============================================
+// 成本与库存管理模型
+// ============================================
+
+model Material {
+  id        String   @id @default(uuid())
+  martId    String?  @map("mart_id")
+  name      String   @db.VarChar(100)
+  unitPrice Decimal  @map("unit_price") @db.Decimal(10, 2)
+  unit      String   @default("克") @db.VarChar(50)
+  description String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  mart      Mart?    @relation(fields: [martId], references: [id], onDelete: Cascade)
+
+  @@index([martId])
+  @@map("materials")
+}
+
+model LowStockAlert {
+  id           String   @id @default(uuid())
+  goodsId      String   @map("goods_id")
+  martId       String?  @map("mart_id")
+  threshold    Int
+  currentStock Int      @map("current_stock")
+  alertedAt    DateTime? @map("alerted_at")
+  status       String   @default("ACTIVE") @db.VarChar(20)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  goods        Goods    @relation(fields: [goodsId], references: [id], onDelete: Cascade)
+  mart         Mart?    @relation(fields: [martId], references: [id], onDelete: Cascade)
+
+  @@index([goodsId])
+  @@index([status])
+  @@map("low_stock_alerts")
+}
+
+// ============================================
+// 用户交互模型
+// ============================================
+
+model GoodsLike {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  goodsId   String   @map("goods_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goods     Goods    @relation(fields: [goodsId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, goodsId])
+  @@index([userId])
+  @@index([goodsId])
+  @@map("goods_likes")
+}
+
+model GoodsSuggestion {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  orderId       String?  @map("order_id")
+  goodsId       String   @map("goods_id")
+  suggestionType String?  @map("suggestion_type") @db.VarChar(50)
+  content       String   @db.Text
+  status        String   @default("PENDING") @db.VarChar(20)
+  processedAt   DateTime? @map("processed_at")
+  processedBy   String?  @map("processed_by")
+  processorNotes String?  @map("processor_notes") @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user          User     @relation("suggestions", fields: [userId], references: [id], onDelete: Cascade)
+  order         Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  goods         Goods    @relation(fields: [goodsId], references: [id], onDelete: Cascade)
+  processor     User?    @relation("processedSuggestions", fields: [processedBy], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([goodsId])
+  @@index([status])
+  @@map("goods_suggestions")
+}
+
+model GoodsReview {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  orderId      String?  @map("order_id")
+  goodsId      String   @map("goods_id")
+  martId       String?  @map("mart_id")
+  rating       Int      @db.SmallInt
+  title        String?  @db.VarChar(200)
+  content      String?  @db.Text
+  reviewType   String   @default("goods") @map("review_type") @db.VarChar(20)
+  isApproved   Boolean  @default(false) @map("is_approved")
+  images       String?  @db.Text
+  approvedAt   DateTime? @map("approved_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order        Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  goods        Goods    @relation(fields: [goodsId], references: [id], onDelete: Cascade)
+  mart         Mart?    @relation(fields: [martId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([goodsId])
+  @@index([goodsId, isApproved])
+  @@map("goods_reviews")
+}
+
+// ============================================
+// 系统配置模型
+// ============================================
+
+model HelpArticle {
+  id        String   @id @default(uuid())
+  title     String   @db.VarChar(200)
+  content   String?  @db.Text
+  category  String?  @db.VarChar(50)
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("help_articles")
+}
+
+model Carousel {
+  id        String    @id @default(uuid())
+  title     String?   @db.VarChar(200)
+  imageUrl  String    @map("image_url") @db.Text
+  linkUrl   String?   @map("link_url") @db.Text
+  linkType  String?   @map("link_type") @db.VarChar(20)
+  sortOrder Int       @default(0) @map("sort_order")
+  isActive  Boolean   @default(true) @map("is_active")
+  startTime DateTime? @map("start_time")
+  endTime   DateTime? @map("end_time")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@map("carousels")
+}
+
+model SystemConfig {
+  id          String   @id @default(uuid())
+  configKey   String   @unique @map("config_key") @db.VarChar(100)
+  configValue String?  @map("config_value") @db.Text
+  description String?  @db.VarChar(500)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("system_configs")
+}
+
+// ============================================
+// 地区模型
+// ============================================
+
+model Province {
+  code      String   @id @db.VarChar(10)
+  name      String   @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  cities    City[]
+
+  @@map("provinces")
+}
+
+model City {
+  code        String   @id @db.VarChar(10)
+  provinceCode String  @map("province_code") @db.VarChar(10)
+  name        String   @db.VarChar(50)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  province    Province @relation(fields: [provinceCode], references: [code])
+  districts   District[]
+
+  @@map("cities")
+}
+
+model District {
+  code      String   @id @db.VarChar(10)
+  cityCode  String   @map("city_code") @db.VarChar(10)
+  name      String   @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  city      City     @relation(fields: [cityCode], references: [code])
+
+  @@map("districts")
+}

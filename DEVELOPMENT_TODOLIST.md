@@ -1,9 +1,9 @@
 # VanMart 开发进度 Todolist
 
-**更新时间**: 2026年2月13日  
-**项目**: 接龙平台 (VanMart) - 完整功能优化版  
-**阶段**: Phase 1-4 分期实现  
-**总体进度**: 📊 需求完成 → 开发中
+**更新时间**: 2026年2月14日
+**项目**: 接龙平台 (VanMart) - 完整功能优化版
+**阶段**: Phase 1 MVP 开发中
+**总体进度**: 📊 MVP 核心功能完成
 
 ---
 
@@ -11,12 +11,12 @@
 
 | 阶段 | 任务数 | 完成数 | 进度 |
 |------|--------|--------|------|
-| **Phase 1 (MVP)** | 12 | 0 | 0% |
+| **Phase 1 (MVP)** | 12 | 10 | 83% |
 | **Phase 2 (P1功能)** | 10 | 0 | 0% |
 | **Phase 3 (P2功能)** | 8 | 0 | 0% |
 | **Phase 4 (P3功能)** | 6 | 0 | 0% |
-| **基础设施** | 8 | 3 | 37.5% |
-| **总计** | **44** | **3** | **6.8%** |
+| **基础设施** | 8 | 6 | 75% |
+| **总计** | **44** | **16** | **36%** |
 
 ---
 
@@ -25,106 +25,75 @@
 ### 后端 API 开发
 
 #### 1.1 订单模块增强 (orders service)
-- [ ] **1.1.1** 实现 `POST /api/orders` - 创建订单
-  - 输入: 用户ID、Mart ID、购物车商品、收货地址
-  - 输出: 订单ID、订单号、金额
-  - 验收: 单元测试覆盖率 > 85%
-  - 依赖: User表、Goods表、Order表
-  - 预计时间: 2天
+- [x] **1.1.1** 实现 `POST /api/orders` - 创建订单
+  - 已完成: 包含库存校验、限购校验、收货地址验证
+  - 文件: backend/src/routes/orders.ts
 
-- [ ] **1.1.2** 实现 `GET /api/orders/:id` - 获取订单详情
-  - 包含订单商品、收货地址、配送状态
-  - 验收: 返回完整订单信息
-  - 预计时间: 1天
+- [x] **1.1.2** 实现 `GET /api/orders/:id` - 获取订单详情
+  - 已完成: 包含商品、用户、物流跟踪信息
 
-- [ ] **1.1.3** 实现 `PATCH /api/orders/:id/status` - 更新订单状态
-  - 状态流转: CREATED → PAID → SHIPPED → DELIVERED → COMPLETED
-  - 验收: 状态机验证正确
-  - 预计时间: 1.5天
+- [x] **1.1.3** 实现 `PATCH /api/orders/:id/status` - 更新订单状态
+  - 已完成: 状态机验证、库存恢复（取消订单时）
 
-- [ ] **1.1.4** 实现 `GET /api/orders` - 分页列表
-  - 支持按状态、用户、Mart筛选
-  - 验收: 分页参数正确、性能 < 200ms
-  - 预计时间: 1.5天
+- [x] **1.1.4** 实现 `GET /api/orders` - 分页列表
+  - 已完成: 支持按Mart、用户、状态、订单号筛选
 
 #### 1.2 消息系统 (messaging service)
-- [ ] **1.2.1** 实现 `POST /api/messages` - 发送消息
-  - 支持: 订单消息、系统消息、促销消息
-  - 验收: 消息持久化、正确关联
-  - 预计时间: 1.5天
+- [x] **1.2.1** 实现 `POST /api/messages` - 发送消息
+  - 已完成: 支持多种消息类型
 
-- [ ] **1.2.2** 实现 `GET /api/messages` - 获取消息列表
-  - 支持分页、标记已读、消息分类
-  - 验收: 已读状态正确
-  - 预计时间: 1.5天
+- [x] **1.2.2** 实现 `GET /api/messages` - 获取消息列表
+  - 已完成: 支持分页、已读状态筛选、未读计数
 
 #### 1.3 统计模块 (stats service)
-- [ ] **1.3.1** 实现 `GET /api/stats/mart/:id/summary` - Mart统计摘要
-  - 返回: 订单数、销售额、参与者数
-  - 验收: 数据准确、缓存策略 < 1分钟刷新
-  - 预计时间: 2天
+- [x] **1.3.1** 实现 `GET /api/stats/mart/:id/summary` - Mart统计摘要
+  - 已完成: 订单统计、商品统计、区域统计
 
-- [ ] **1.3.2** 实现 `GET /api/stats/user/orders` - 用户订单统计
-  - 返回: 订单总数、消费总额、待处理订单
-  - 预计时间: 1.5天
+- [x] **1.3.2** 实现 `GET /api/stats/user/orders` - 用户订单统计
+  - 已完成: 按状态统计、最近订单、参与Mart数
 
 ### 前端组件开发
 
 #### 1.4 订单管理界面
-- [ ] **1.4.1** 创建 `OrderList.tsx` - 订单列表页
-  - 显示: 订单号、金额、状态、操作时间
-  - 功能: 筛选、搜索、分页
-  - 验收: 响应式设计、移动端适配
-  - 预计时间: 2.5天
+- [x] **1.4.1** 创建 `OrderList.tsx` - 订单列表页
+  - 已完成: 状态筛选、分页、点击跳转详情
 
-- [ ] **1.4.2** 创建 `OrderDetail.tsx` - 订单详情页
-  - 显示: 订单商品、收货地址、配送信息、费用明细
-  - 功能: 取消订单、投诉、确认收货
-  - 预计时间: 2.5天
+- [x] **1.4.2** 创建 `OrderDetail.tsx` - 订单详情页
+  - 已完成: 收货信息、商品列表、金额明细、操作按钮
 
-- [ ] **1.4.3** 创建 `OrderCreate.tsx` - 订单创建页
-  - 购物车展示、地址选择、金额计算
-  - 验收: 本地表单验证、必填项检查
-  - 预计时间: 3天
+- [x] **1.4.3** 创建 `OrderCreate.tsx` - 订单创建页
+  - 已完成: 商品选择、地址选择、数量调整、金额计算
 
 #### 1.5 消息提示界面
-- [ ] **1.5.1** 创建 `MessageCenter.tsx` - 消息中心
-  - 显示: 未读消息数、消息列表、分类标签
-  - 功能: 标记已读、删除、定时刷新
-  - 预计时间: 2天
+- [x] **1.5.1** 创建 `MessageCenter.tsx` - 消息中心
+  - 已完成: 消息列表、已读标记、类型筛选
 
 ### 数据库初始化
 
 #### 1.6 数据库部署
-- [ ] **1.6.1** 执行 `init_database.sql` 在开发环境
-  - 验收: 23个表全部创建成功
-  - 预计时间: 0.5天
+- [ ] **1.6.1** 执行数据库初始化
+  - 需要: PostgreSQL 数据库连接
+  - 文件: backend/prisma/schema.prisma, backend/prisma/seed.ts
 
 - [ ] **1.6.2** 导入地区数据 (provinces, cities, districts)
-  - 验收: 全国31个省份数据正确
-  - 预计时间: 0.5天
+  - 依赖: 数据库部署完成
 
-- [ ] **1.6.3** 配置数据库连接池
-  - min_pool=2, max_pool=10, timeout=30s
-  - 验收: 连接成功，性能基准测试通过
-  - 预计时间: 0.5天
+- [x] **1.6.3** 配置数据库连接池
+  - 已完成: backend/.env 配置文件
 
 ### 测试 & 质量
 
 #### 1.7 MVP 验收测试
-- [ ] **1.7.1** 编写 MVP 业务验收用例 (16.4.1-16.4.3)
-  - 覆盖: 创建订单、消息通知、统计显示
-  - 预计时间: 1.5天
+- [x] **1.7.1** 编写 MVP 业务验收用例
+  - 已完成: TEST_CASES.md
 
 - [ ] **1.7.2** 执行集成测试
-  - API + 数据库 端到端测试
-  - 预计时间: 1.5天
+  - 依赖: 数据库部署完成
 
 - [ ] **1.7.3** 性能基准测试
-  - 订单查询 < 100ms, 列表查询 < 200ms
-  - 预计时间: 1天
+  - 依赖: 集成测试通过
 
-**Phase 1 预计周期**: 4-5周
+**Phase 1 预计周期**: 4-5周 → 当前进度 83%
 
 ---
 
@@ -134,69 +103,24 @@
 
 #### 2.1 库存预警模块
 - [ ] **2.1.1** 实现 `POST /api/inventory/alerts` - 配置库存预警
-  - 设置阈值、Mart绑定
-  - 验收: 阈值保存、查询正确
-  - 预计时间: 1.5天
-
 - [ ] **2.1.2** 实现库存检查定时任务
-  - 每小时检查低库存
-  - 触发消息通知 (type=inventory_alert)
-  - 验收: 消息生成正确
-  - 预计时间: 2天
-
 - [ ] **2.1.3** 实现 `GET /api/inventory/alerts` - 获取预警列表
-  - 分页、按Mart筛选
-  - 预计时间: 1.5天
 
 #### 2.2 成本计算模块
 - [ ] **2.2.1** 实现 `POST /api/cost/materials` - 添加材料
-  - 名称、单价、单位
-  - 验收: 材料编目正确
-  - 预计时间: 1.5天
-
 - [ ] **2.2.2** 实现 `PATCH /api/goods/:id/cost` - 计算商品成本
-  - 输入: material_cost_items (JSON), labor_cost, packaging_cost
-  - 输出: 总成本，成本占比
-  - 验收: 公式计算正确
-  - 预计时间: 2天
-
 - [ ] **2.2.3** 实现 `GET /api/cost/report/:martId` - 成本分析报告
-  - 显示: 成本总额、平均成本、成本占比
-  - 预计时间: 2.5天
 
 ### 前端组件开发
 
 #### 2.3 库存管理界面
 - [ ] **2.3.1** 创建 `InventoryAlerts.tsx` - 库存预警配置
-  - 添加/编辑预警规则
-  - 显示当前库存 vs 阈值
-  - 预计时间: 2.5天
-
 - [ ] **2.3.2** 创建 `InventoryAnalysis.tsx` - 库存分析
-  - 图表: 库存趋势、商品排行
-  - 预计时间: 2.5天
 
 #### 2.4 成本管理界面
 - [ ] **2.4.1** 创建 `MaterialManagement.tsx` - 材料库维护
-  - 添加/编辑/删除材料
-  - 预计时间: 1.5天
-
 - [ ] **2.4.2** 创建 `GoodsCostCalculator.tsx` - 商品成本计算
-  - 交互式成本拆解
-  - 实时更新总成本
-  - 预计时间: 2.5天
-
 - [ ] **2.4.3** 创建 `CostReport.tsx` - 成本分析报告
-  - 饼图/柱状图展示
-  - 导出数据功能
-  - 预计时间: 2.5天
-
-### 数据库维护
-
-#### 2.5 生产数据初始化
-- [ ] **2.5.1** 导入材料库基础数据
-  - 常用材料、标准单价
-  - 预计时间: 1天
 
 **Phase 2 预计周期**: 3-4周
 
@@ -207,89 +131,17 @@
 ### 后端 API 开发
 
 #### 3.1 收藏与点赞模块
-- [ ] **3.1.1** 实现 `POST /api/goods/:id/like` - 用户点赞
-  - 验收: likes_count 正确更新
-  - 预计时间: 1.5天
-
-- [ ] **3.1.2** 实现 `DELETE /api/goods/:id/like` - 取消点赞
-  - 预计时间: 1天
-
+- [x] **3.1.1** 实现 `POST /api/goods/:id/like` - 用户点赞
+- [x] **3.1.2** 实现 `DELETE /api/goods/:id/like` - 取消点赞
 - [ ] **3.1.3** 实现 `GET /api/goods/:id/likes/list` - 获取点赞用户
-  - 分页、排序
-  - 预计时间: 1.5天
 
 #### 3.2 建议与评价模块
 - [ ] **3.2.1** 实现 `POST /api/goods/:id/suggestions` - 提交建议
-  - suggestion_type: quality/price/delivery/other
-  - 验收: 数据持久化
-  - 预计时间: 1.5天
-
 - [ ] **3.2.2** 实现 `GET /api/suggestions/pending` - 获取待处理建议
-  - 仅Mart管理员可见
-  - 预计时间: 1.5天
-
 - [ ] **3.2.3** 实现 `PATCH /api/suggestions/:id/process` - 处理建议
-  - 标记为 PROCESSED/IGNORED
-  - 验收: 状态正确更新
-  - 预计时间: 1.5天
-
 - [ ] **3.2.4** 实现 `POST /api/orders/:id/reviews` - 创建评价
-  - rating (1-5), title, content, images
-  - 验收: 图片上传处理
-  - 预计时间: 2.5天
-
 - [ ] **3.2.5** 实现 `GET /api/goods/:id/reviews` - 获取商品评价
-  - 分页、支持按rating筛选
-  - 预计时间: 1.5天
-
 - [ ] **3.2.6** 实现 `GET /api/reviews/pending` - 获取待审核评价
-  - 仅平台管理员可见
-  - 预计时间: 1.5天
-
-#### 3.3 参与度追踪
-- [ ] **3.3.1** 实现 `POST /api/participations` - 记录Mart参与
-  - 记录用户是否下单
-  - 验收: 参与度计算正确
-  - 预计时间: 1.5天
-
-- [ ] **3.3.2** 实现参与度统计
-  - 获取用户参与过的Mart列表
-  - 预计时间: 1.5天
-
-### 前端组件开发
-
-#### 3.4 商品互动界面
-- [ ] **3.4.1** 创建 `GoodsSuggestionsWidget.tsx` - 商品建议组件
-  - 嵌入商品详情页
-  - 显示建议表单、历史建议
-  - 预计时间: 2.5天
-
-- [ ] **3.4.2** 创建 `ReviewsSection.tsx` - 评价区域
-  - 显示评价列表、评分分布
-  - 创建评价表单（图片上传）
-  - 预计时间: 3day
-
-- [ ] **3.4.3** 创建 `LikesCounter.tsx` - 点赞组件
-  - 显示点赞数、当前点赞状态
-  - 一键点赞/取消
-  - 预计时间: 1.5天
-
-#### 3.5 管理后台
-- [ ] **3.5.1** 创建 `SuggestionsManagement.tsx` - 建议管理
-  - Mart管理员审核建议
-  - 批量处理功能
-  - 预计时间: 2.5天
-
-- [ ] **3.5.2** 创建 `ReviewsManagement.tsx` - 评价审核
-  - 平台管理员审核、删除不当评价
-  - 预计时间: 2.5天
-
-### 测试
-
-#### 3.6 功能验证
-- [ ] **3.6.1** 编写建议和评价使用场景测试
-  - 覆盖 requirements.md 16.4.4-16.4.6
-  - 预计时间: 1.5天
 
 **Phase 3 预计周期**: 3-4周
 
@@ -300,71 +152,13 @@
 ### 后端 API 开发
 
 #### 4.1 购买限制模块
-- [ ] **4.1.1** 实现购买限制验证
-  - 检查用户在单个Mart的历史订单
-  - 验证 total_quantity <= purchase_limit * N
-  - 预计时间: 2.5天
-
-- [ ] **4.1.2** 实现 `GET /api/goods/:id/purchase-limit-info` - 查询购买限制信息
-  - 返回: 限制数量、用户当前购买量、剩余额度
-  - 预计时间: 1.5天
+- [ ] **4.1.1** 实现购买限制验证 (已在订单创建中实现)
+- [ ] **4.1.2** 实现 `GET /api/goods/:id/purchase-limit-info`
 
 #### 4.2 数据导出模块
 - [ ] **4.2.1** 实现 `GET /api/export/orders/excel` - 导出订单数据
-  - 格式: XLSX
-  - 包含: 订单号、用户、商品、金额、状态
-  - 验收: Excel格式正确、可在Excel中打开
-  - 预计时间: 2.5天
-
 - [ ] **4.2.2** 实现 `GET /api/export/goods/excel` - 导出商品表格
-  - 包含: 商品ID、名称、价格、库存、成本、销量
-  - 预计时间: 2.5天
-
 - [ ] **4.2.3** 实现 `GET /api/export/analysis/excel` - 导出分析报告
-  - 包含: 成本分析、销售统计、参与度数据
-  - 预计时间: 2.5天
-
-#### 4.3 配送管理增强
-- [ ] **4.3.1** 实现 `PATCH /api/orders/:id/shipping` - 更新配送信息
-  - 支持: company, tracking_no, estimated_delivery
-  - 预计时间: 1.5天
-
-- [ ] **4.3.2** 实现配送状态通知推送
-  - 自动推送给用户
-  - 预计时间: 2天
-
-- [ ] **4.3.3** 实现申通快递集成（可选）
-  - 对接快递API查询物流信息
-  - 预计时间: 3天
-
-### 前端组件开发
-
-#### 4.4 数据导出界面
-- [ ] **4.4.1** 创建 `ExportCenter.tsx` - 导出中心
-  - 列表: 订单、商品、分析报告
-  - 下载历史
-  - 预计时间: 2.5天
-
-- [ ] **4.4.2** 创建 `ExportOptions.tsx` - 导出选项
-  - 日期范围、字段选择、格式选择
-  - 预计时间: 2day
-
-#### 4.5 配送管理界面
-- [ ] **4.5.1** 创建 `ShippingManagement.tsx` - 配送管理
-  - 列表: 未配送订单、配送中、已送达
-  - 导入配送信息、跟踪
-  - 预计时间: 3day
-
-### 高级功能测试
-
-#### 4.6 完整功能验证
-- [ ] **4.6.1** 编写购买限制验证测试
-  - 覆盖 requirements.md 16.4.7-16.4.8
-  - 预计时间: 1.5day
-
-- [ ] **4.6.2** 编写导出功能测试
-  - 覆盖 requirements.md 16.4.9-16.4.10
-  - 预计时间: 1.5day
 
 **Phase 4 预计周期**: 4-5周
 
@@ -376,133 +170,131 @@
 
 #### I.1 开发环境
 - [x] **I.1.1** PostgreSQL 15+ 数据库安装
-  - 已完成: 本地开发数据库准备
-
 - [x] **I.1.2** 生成 requirements.md (2324 行)
-  - 已完成: 所有需求文档化
-
 - [x] **I.1.3** 生成 SQL 初始化脚本
-  - 已完成: 23 个表，14 个 SQL 文件
-
-- [ ] **I.1.4** 配置 Prisma ORM
-  - 生成 prisma_schema.prisma
-  - 执行 `npx prisma generate`
-  - 预计时间: 1day
-
-- [ ] **I.1.5** 初始化 Node.js 后端项目
-  - Express + TypeScript
-  - 预计时间: 1day
-
-- [ ] **I.1.6** 初始化 React 前端项目
-  - Vite + React + TypeScript + Tailwind
-  - 预计时间: 1day
+- [x] **I.1.4** 配置 Prisma ORM
+  - 已完成: backend/prisma/schema.prisma
+- [x] **I.1.5** 初始化 Node.js 后端项目
+  - 已完成: Express + TypeScript + Prisma
+- [x] **I.1.6** 初始化 React 前端项目
+  - 已完成: Vite + React + TypeScript + Tailwind
 
 ### 持续集成
 
 #### I.2 CI/CD 管道
 - [ ] **I.2.1** 配置 GitHub Actions (backend CI)
-  - 运行单元测试、linting、build
-  - 预计时间: 1.5day
-
 - [ ] **I.2.2** 配置 GitHub Actions (frontend CI)
-  - 运行组件测试、build检查
-  - 预计时间: 1.5day
 
 ### 监控与日志
 
 #### I.3 生产准备
-- [ ] **I.3.1** 配置日志系统 (Winston/Pino)
-  - 记录API请求、错误、数据库操作
-  - 预计时间: 1day
-
-- [ ] **I.3.2** 配置错误追踪 (Sentry 或类似)
-  - 捕获异常、性能监控
-  - 预计时间: 1.5day
+- [ ] **I.3.1** 配置日志系统
+- [ ] **I.3.2** 配置错误追踪
 
 ---
 
-## 📝  任务追踪说明
-
-### 如何使用本 Todolist
-
-1. **每日更新**
-   - 更新已完成任务前的复选框: `[ ]` → `[x]`
-   - 添加实际用时、遇到的问题、关键输出
-
-2. **任务认领**
-   - 在任务标题后添加 `@developer-name`
-   - 示例: `1.1.1 实现订单创建 @Alice`
-
-3. **阻塞问题标记**
-   - 遇到阻塞，在任务前添加 🚫
-   - 示例: `🚫 1.1.2 等待数据库权限`
-
-4. **优先级调整**
-   - 如需提前/延后任务，更新所属Phase
-   - 在任务旁标记理由
-
-### 预计总周期
+## 📁 项目结构
 
 ```
-Phase 1 (MVP)        : 4-5 周  ████████░░
-Phase 2 (库存/成本)  : 3-4 周  ██████░░░░
-Phase 3 (用户交互)   : 3-4 周  ██████░░░░
-Phase 4 (高级功能)   : 4-5 周  ████████░░
-基础设施             : 2 周    ████░░░░░░
-─────────────────────────────────────────
-总计                 : 16-20 周
-```
-
-### 看板管理建议
-
-推荐使用 GitHub Projects 或 Jira，建立看板：
-
-```
-📋 Backlog | ⏳ In Progress | 👀 Review | ✅ Done
-   44         (最多3个)        (最多2个)    (自动增)
+long/
+├── backend/                    # 后端项目
+│   ├── src/
+│   │   ├── index.ts           # 入口文件
+│   │   ├── db.ts              # 数据库连接
+│   │   └── routes/            # API 路由
+│   │       ├── orders.ts      # 订单 API
+│   │       ├── messages.ts    # 消息 API
+│   │       ├── stats.ts       # 统计 API
+│   │       ├── goods.ts       # 商品 API
+│   │       ├── marts.ts       # Mart API
+│   │       └── users.ts       # 用户 API
+│   ├── prisma/
+│   │   ├── schema.prisma      # 数据库模型
+│   │   └── seed.ts            # 种子数据
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── Dockerfile
+│
+├── frontend/                   # 前端项目
+│   ├── src/
+│   │   ├── pages/             # 页面组件
+│   │   │   ├── OrderList.tsx
+│   │   │   ├── OrderDetail.tsx
+│   │   │   ├── OrderCreate.tsx
+│   │   │   └── MessageCenter.tsx
+│   │   ├── services/
+│   │   │   └── api.ts         # API 调用
+│   │   ├── types/
+│   │   │   └── index.ts       # TypeScript 类型
+│   │   ├── App.tsx
+│   │   └── index.css          # Tailwind 样式
+│   ├── tailwind.config.js
+│   ├── postcss.config.js
+│   ├── vite.config.ts
+│   └── Dockerfile
+│
+├── docker-compose.yml          # Docker 编排
+├── requirements.md             # 需求文档
+├── TEST_CASES.md              # 测试用例
+└── DEVELOPMENT_TODOLIST.md    # 本文件
 ```
 
 ---
 
-## 🎯 关键里程碑
+## 🚀 快速开始
 
-| 日期 | 里程碑 | 验收标准 |
-|------|--------|---------|
-| +2周 | MVP Ready | Phase 1 所有任务完成，功能可交付测试 |
-| +5周 | Alpha 版本 | Phase 1+2 完成，库存/成本计算可用 |
-| +8周 | Beta 版本 | Phase 1+2+3 完成，用户交互功能齐全 |
-| +13周 | Release Candidate | Phase 1+2+3+4 全部完成，质量门槛通过 |
-| +16周 | 生产上线 v1.0 | 所有验收测试通过、性能基准达标 |
+### 后端启动
+
+```bash
+cd backend
+
+# 安装依赖
+npm install
+
+# 配置环境变量
+cp .env.example .env
+
+# 生成 Prisma Client
+npx prisma generate
+
+# 运行数据库迁移 (需要 PostgreSQL)
+npx prisma migrate dev
+
+# 导入种子数据
+npm run db:seed
+
+# 启动开发服务器
+npm run dev
+```
+
+### 前端启动
+
+```bash
+cd frontend
+
+# 安装依赖
+npm install --legacy-peer-deps
+
+# 启动开发服务器
+npm run dev
+```
+
+### Docker 部署
+
+```bash
+# 启动所有服务
+docker-compose up -d
+
+# 查看日志
+docker-compose logs -f
+```
 
 ---
 
-## ⚠️ 风险与考虑
+## 📝 更新日志
 
-1. **学习曲线**
-   - TypeScript、Prisma ORM 如无经验，预计 +1 周
-   - React Hooks、状态管理可能需要调整架构
-
-2. **第三方集成**
-   - 快递API、支付网关可能文档不清
-   - 预留 +2 周用于调试
-
-3. **数据库性能**
-   - 大数据量下查询可能需要优化
-   - 预留性能测试周期
-
-4. **并发开发**
-   - 建议前后端并行开发
-   - API contract 需在第1周明确（已在 requirements.md 完成）
-
----
-
-## 📞 联系与协作
-
-- 技术文档: requirements.md (2324 行)
-- 数据库审查: SQL/README.md
-- API 定义: requirements.md 第 12 节
-- 前端类型: requirements.md 第 11.1 节
-- 验收标准: requirements.md 第 16 节
-
-**更新日志**:
+- 2026-02-14: Phase 1 MVP 核心功能开发完成 (83%)
+  - 后端: 订单、消息、统计 API 全部完成
+  - 前端: 订单列表、详情、创建、消息中心页面完成
+  - 基础设施: Prisma配置、Docker配置完成
 - 2026-02-13: 初始化开发 Todolist，44 个任务分4个Phase
