@@ -1,0 +1,311 @@
+// VanMart Prisma Schema 配置参考
+// 本文件是 prisma/schema.prisma 中关于数据库的核心部分参考
+// 完整内容见 requirements.md 第10.3节
+
+// 基础配置
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ============================================
+// 用户模型
+// ============================================
+
+model User {
+  id           String   @id @default(uuid())
+  phone        String?  @unique @db.VarChar(20)
+  nickname     String?  @db.VarChar(100)
+  avatarUrl    String?  @map("avatar_url") @db.Text
+  passwordHash String?  @map("password_hash") @db.VarChar(255)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  profile          UserProfile?
+  sessions         UserSession[]
+  shippingAddresses ShippingAddress[]
+  marts            Mart[]
+  orders           Order[]
+  messages         Message[]
+  participations   MartParticipation[]
+  likes            GoodsLike[]
+  suggestions      GoodsSuggestion[] @relation("suggestions")
+  processedSuggestions GoodsSuggestion[] @relation("processedSuggestions")
+  reviews          GoodsReview[]
+
+  @@map("users")
+}
+
+// ============================================
+// Mart 模型 (核心修改)
+// ============================================
+
+model Mart {
+  id                 String    @id @default(uuid())
+  userId             String?   @map("user_id")
+  topic              String    @db.VarChar(500)
+  description        String?   @db.Text
+  setFinishTime      Boolean   @default(false) @map("set_finish_time")
+  finishTime         DateTime? @map("finish_time")
+  status             String    @default("OPEN") @db.VarChar(20)  // OPEN/CLOSED/ENDED
+  browseCount        Int       @default(0) @map("browse_count")
+  isSingleProduct    Boolean   @default(false) @map("is_single_product")
+  groupSum           Int?      @map("group_sum")
+  deliveryDescription String?  @map("delivery_description") @db.Text
+  expectedShipDays   Int       @default(3) @map("expected_ship_days")
+  autoConfirmDays    Int       @default(7) @map("auto_confirm_days")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  // 关系
+  user               User?             @relation(fields: [userId], references: [id], onDelete: SetNull)
+  images             MartImage[]
+  goods              Goods[]
+  orders             Order[]
+  deliveryAreas      MartDeliveryArea[]
+  participations     MartParticipation[]
+  materials          Material[]
+  lowStockAlerts     LowStockAlert[]
+  reviews            GoodsReview[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("marts")
+}
+
+// ============================================
+// 商品模型 (大量新增字段)
+// ============================================
+
+model Goods {
+  id                String       @id @default(uuid())
+  martId            String       @map("mart_id")
+  categoryId        String?      @map("category_id")
+  name              String       @db.VarChar(200)
+  description       String?      @db.Text
+  specification     String?      @db.VarChar(200)
+  price             Decimal      @db.Decimal(10, 2)
+  originalPrice     Decimal?     @map("original_price") @db.Decimal(10, 2)
+  repertory         Int          @default(0)
+  soldCount         Int          @default(0) @map("sold_count")
+  isSetGroup        Boolean      @default(false) @map("is_set_group")
+  groupSum          Int?         @map("group_sum")
+  lowStockThreshold Int?         @map("low_stock_threshold")  // ⭐ 库存预警
+  purchaseLimit     Int?         @map("purchase_limit")       // ⭐ 限购数量
+  cost              Decimal?     @db.Decimal(10, 2)           // ⭐ 总成本
+  materialCostItems String?      @map("material_cost_items") @db.Text  // ⭐ 材料JSON
+  laborCost         Decimal?     @map("labor_cost") @db.Decimal(10, 2)    // ⭐ 人工成本
+  packagingCost     Decimal?     @map("packaging_cost") @db.Decimal(10, 2) // ⭐ 包装成本
+  likesCount        Int          @default(0) @map("likes_count")    // ⭐ 喜欢计数
+  sortOrder         Int          @default(0) @map("sort_order")
+  status            String       @default("ACTIVE") @db.VarChar(20)
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  // 关系
+  mart              Mart         @relation(fields: [martId], references: [id], onDelete: Cascade)
+  category          GoodsCategory? @relation(fields: [categoryId], references: [id])
+  images            GoodsImage[]
+  orderItems        OrderItem[]
+  likes             GoodsLike[]
+  suggestions       GoodsSuggestion[]
+  reviews           GoodsReview[]
+
+  @@index([martId])
+  @@map("goods")
+}
+
+// ============================================
+// 订单模型 (新增成本字段)
+// ============================================
+
+model Order {
+  id             String    @id @default(uuid())
+  orderNo        String    @unique @map("order_no") @db.VarChar(32)
+  martId         String?   @map("mart_id")
+  userId         String?   @map("user_id")
+
+  // 收货信息
+  receiverName   String    @map("receiver_name") @db.VarChar(50)
+  receiverPhone  String    @map("receiver_phone") @db.VarChar(20)
+  province       String    @db.VarChar(50)
+  city           String    @db.VarChar(50)
+  district       String    @db.VarChar(50)
+  detailAddress  String    @map("detail_address") @db.VarChar(500)
+
+  // 金额
+  totalAmount    Decimal   @map("total_amount") @db.Decimal(10, 2)
+  freightAmount  Decimal   @default(0) @map("freight_amount") @db.Decimal(10, 2)
+  goodsCost      Decimal   @default(0) @map("goods_cost") @db.Decimal(10, 2)  // ⭐ 成本追踪
+
+  // 状态
+  status         String    @default("CREATED") @db.VarChar(30)
+
+  // 配送信息
+  shippingCompany String?  @map("shipping_company") @db.VarChar(100)
+  shippingNo      String?  @map("shipping_no") @db.VarChar(100)
+  shippedAt       DateTime? @map("shipped_at")
+  deliveredAt     DateTime? @map("delivered_at")
+  completedAt     DateTime? @map("completed_at")
+  canceledAt      DateTime? @map("canceled_at")
+  cancelReason    String?  @map("cancel_reason") @db.Text
+
+  // 备注
+  buyerRemark    String?   @map("buyer_remark") @db.Text
+  sellerRemark   String?   @map("seller_remark") @db.Text
+
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  // 关系
+  mart           Mart?     @relation(fields: [martId], references: [id], onDelete: SetNull)
+  user           User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  items          OrderItem[]
+  deliveryTracks OrderDeliveryTrack[]
+  participation  MartParticipation?
+  suggestions    GoodsSuggestion[]
+  reviews        GoodsReview[]
+
+  @@index([martId])
+  @@index([userId])
+  @@index([status])
+  @@map("orders")
+}
+
+// ============================================
+// 新增模型：成本管理
+// ============================================
+
+model Material {
+  id        String   @id @default(uuid())
+  martId    String?  @map("mart_id")
+  name      String   @db.VarChar(100)
+  unitPrice Decimal  @map("unit_price") @db.Decimal(10, 2)
+  unit      String   @default("克") @db.VarChar(50)
+  description String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  mart      Mart?    @relation(fields: [martId], references: [id], onDelete: Cascade)
+
+  @@map("materials")
+}
+
+// ============================================
+// 新增模型：库存预警
+// ============================================
+
+model LowStockAlert {
+  id           String   @id @default(uuid())
+  goodsId      String   @map("goods_id")
+  martId       String?  @map("mart_id")
+  threshold    Int
+  currentStock Int      @map("current_stock")
+  alertedAt    DateTime? @map("alerted_at")
+  status       String   @default("ACTIVE") @db.VarChar(20)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // 关系
+  goods        Goods    @relation(fields: [goodsId], references: [id], onDelete: Cascade)
+  mart         Mart?    @relation(fields: [martId], references: [id], onDelete: Cascade)
+
+  @@map("low_stock_alerts")
+}
+
+// ============================================
+// 新增模型：用户交互
+// ============================================
+
+model GoodsLike {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id")
+  goodsId   String   @map("goods_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  goods     Goods    @relation(fields: [goodsId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, goodsId])
+  @@map("goods_likes")
+}
+
+model GoodsSuggestion {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  orderId       String?  @map("order_id")
+  goodsId       String   @map("goods_id")
+  suggestionType String?  @map("suggestion_type") @db.VarChar(50)
+  content       String   @db.Text
+  status        String   @default("PENDING") @db.VarChar(20)
+  processedAt   DateTime? @map("processed_at")
+  processedBy   String?  @map("processed_by")
+  processorNotes String?  @map("processor_notes") @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user          User     @relation("suggestions", fields: [userId], references: [id], onDelete: Cascade)
+  order         Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  goods         Goods    @relation(fields: [goodsId], references: [id], onDelete: Cascade)
+  processor     User?    @relation("processedSuggestions", fields: [processedBy], references: [id], onDelete: SetNull)
+
+  @@map("goods_suggestions")
+}
+
+model GoodsReview {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  orderId      String?  @map("order_id")
+  goodsId      String   @map("goods_id")
+  martId       String?  @map("mart_id")
+  rating       Int      @db.SmallInt
+  title        String?  @db.VarChar(200)
+  content      String?  @db.Text
+  reviewType   String   @default("goods") @map("review_type") @db.VarChar(20)
+  isApproved   Boolean  @default(false) @map("is_approved")
+  images       String?  @db.Text
+  approvedAt   DateTime? @map("approved_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order        Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  goods        Goods    @relation(fields: [goodsId], references: [id], onDelete: Cascade)
+  mart         Mart?    @relation(fields: [martId], references: [id], onDelete: Cascade)
+
+  @@map("goods_reviews")
+}
+
+// ============================================
+// 其他模型（参考）
+// ============================================
+
+// ShippingAddress, Message, HelpArticle 等其他模型定义
+// 详见 requirements.md 第10.3节完整Prisma Schema
+
+// ============================================
+// 使用建议
+// ============================================
+
+// 生成 Prisma Client
+// npx prisma generate
+
+// 创建新迁移
+// npx prisma migrate dev --name add_new_fields
+
+// 部署到生产
+// npx prisma migrate deploy
+
+// ============================================
+// 注意事项
+// ============================================
+
+// 1. 确保DATABASE_URL环境变量正确设置
+// 2. 所有新增字段都有 @map 映射到数据库列名
+// 3. 复合关系使用了正确的 @relation 标签
+// 4. 删除策略选择：CASCADE或SetNull根据业务需求
+// 5. 所有时间戳使用 TIMESTAMPTZ（带时区）
