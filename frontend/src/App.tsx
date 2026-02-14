@@ -97,7 +97,6 @@ function MessageCenterPage() {
 function HomePage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const user = getCurrentUser();
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -110,13 +109,12 @@ function HomePage() {
         <div className="relative">
           <div className="flex justify-between items-start">
             <div className="flex-1">
-              <h1 className="text-4xl font-bold tracking-tight">{t('app.name')}</h1>
-              <p className="text-lg opacity-90 mt-2 font-medium">{t('app.tagline')}</p>
-              {user && (
-                <p className="text-sm opacity-75 mt-3">
-                  {t('auth.signedInAs', { name: user.nickname || user.phone || user.id })}
-                </p>
-              )}
+              <div className="text-xs font-semibold tracking-widest uppercase text-white/85">
+                {t('app.name')}
+              </div>
+              <h1 className="mt-2 text-5xl font-extrabold tracking-tight leading-tight drop-shadow-sm">
+                {t('app.tagline')}
+              </h1>
             </div>
             <LanguageToggle />
           </div>
